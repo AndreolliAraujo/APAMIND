@@ -81,6 +81,28 @@ describe("importação e exportação", () => {
     expect(fileImport.ok && fileImport.kind).toBe("backup");
   });
 
+  it("remaps internal map references (map://) when restoring a multi-map backup", async () => {
+    const a = sampleMap();
+    const b = createMap("Mapa B", "Livre");
+    const refer = mkNode("refer", "", 0, 0, 0, "card", {
+      attachments: [{ id: "att-map", type: "map", name: "Mapa A", path: `map://${a.id}` }],
+    });
+    b.nodes = [...b.nodes, refer];
+
+    const result = await importWorkspaceBackup(file("backup.json", serializeWorkspaceBackup([a, b])));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const importedA = result.maps.find(m => m.title === a.title);
+    const importedB = result.maps.find(m => m.title === "Mapa B");
+    expect(importedA).toBeDefined();
+    expect(importedB).toBeDefined();
+
+    const referNode = importedB!.nodes.find(n => n.title === "refer");
+    expect(referNode).toBeDefined();
+    expect(referNode!.attachments![0].path).toBe(`map://${importedA!.id}`);
+  });
+
   it.each([
     ["invalid JSON syntax", "map.json", "{"],
     ["invalid node relationship", "map.json", JSON.stringify({ ...sampleMap(), edges: [{ id: "edge-x", source: "missing", target: "also-missing" }] })],
