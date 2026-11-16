@@ -1,4 +1,4 @@
-# Procedimento de Segurança: Backup e Restauração APAMIND v0.7.1
+# Procedimento de Segurança: Backup e Restauração APAMIND v0.7.2
 
 Para garantir que você não perca nenhum dado ao desinstalar e reinstalar o APAMIND, siga rigorosamente este guia.
 

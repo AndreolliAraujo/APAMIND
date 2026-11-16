@@ -1,4 +1,4 @@
-# Checklist de desenvolvimento e empacotamento ApaMind 0.7.1
+# Checklist de desenvolvimento e empacotamento ApaMind 0.7.2
 
 ## Antes de compilar
 
@@ -7,7 +7,7 @@
 - [ ] Visual Studio Build Tools com C++ Desktop e Windows SDK.
 - [ ] WebView2 Runtime disponível no Windows.
 - [ ] Dependências instaladas pelo lockfile: `npm.cmd ci`.
-- [ ] `package.json`, `src-tauri/Cargo.toml` e `src-tauri/tauri.conf.json` declaram versão `0.7.1`.
+- [ ] `package.json`, `src-tauri/Cargo.toml` e `src-tauri/tauri.conf.json` declaram versão `0.7.2`.
 - [ ] Ícones `icon.ico`, PNGs e `icon.icns` presentes em `src-tauri/icons/`.
 
 ## Verificações
@@ -16,6 +16,7 @@
 npm.cmd test
 npm.cmd run typecheck
 npm.cmd run lint
+npm.cmd run format:check
 git diff --check
 npm.cmd run build
 cargo check --offline -j 1
