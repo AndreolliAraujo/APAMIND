@@ -1,6 +1,6 @@
 # Contexto do projeto ApaMind
 
-Atualizado em 2026-11-15, release **0.7.2**. Este documento resume a arquitetura vigente, as
+Atualizado em 2026-11-16, release **0.7.3**. Este documento resume a arquitetura vigente, as
 decisões aprovadas e o estado observado no repositório. Não substitui os testes nem autoriza
 mudanças fora do escopo combinado.
 
@@ -86,6 +86,22 @@ src/
 - Caches/gerados fora do versionamento (`.tmp/`, `.vs/`, `src-tauri/gen/`).
 - Prettier aplicado e exigido no CI; `npm run build` redireciona `TEMP`/`TMP` para `.tmp/`.
 
+### Empacotamento (decisão nova na 0.7.3)
+
+- O bundle Windows é **somente NSIS**, com `installMode: currentUser`: instala em
+  `%LOCALAPPDATA%\APAMIND` sem pedir administrador. O MSI deixou de ser gerado.
+- Motivo verificado na máquina: a 0.7.2 instalada via MSI sobre a 0.7.1 deixou **duas** entradas
+  (`APAMIND 0.7.1` e `APAMIND 0.7.2`) apontando para `C:\Program Files\APAMIND`, com o executável já
+  na versão nova. O template WiX do Tauri 2.11 gera `<MajorUpgrade AllowDowngrades="yes">`, cuja linha
+  em `Upgrade` fica com `OnlyDetect` (atributo 257): `RemoveExistingProducts` não tem alvo e a
+  instalação se registra como um segundo produto.
+- Fluxo do NSIS: detecta instalação WiX/MSI por `DisplayName`+`Publisher` nas chaves de desinstalação
+  e a remove antes de instalar (UAC, porque o MSI é por máquina); entre versões NSIS oferece
+  desinstalar antes (padrão) ou reinstalar por cima. Sempre resta uma única entrada.
+- Alternativa descartada: manter MSI com template WiX próprio exigiria uma cópia do template no
+  repositório, sujeita a divergir a cada atualização do Tauri. O NSIS resolve upgrade com o template
+  oficial.
+
 ## O que foi feito nesta consolidação (sem hashes — o histórico foi reiniciado)
 
 | Fase | Entrega |
@@ -98,11 +114,16 @@ src/
 | F | Atalhos corrigidos, exit boundary, CSS animations, links de nota pelo Opener, RTL |
 | G | CSP endurecida, extensões normalizadas, Prettier, CI, auditoria de dependências |
 | H | Versão 0.7.2, CHANGELOG, documentação atualizada |
+| I | 0.7.3: bundle Windows somente NSIS (`currentUser`), MSI descontinuado |
 
 ## Pendências conhecidas
 
-- **Limpeza remota da Fase C:** apagar `master`, `release/0.7.1` e `temp/homologacao-apamind`,
-  repontar a tag `v0.7.1` e rodar `git gc` (aguarda autorização explícita).
+- **Limpeza remota da Fase C: concluída** — `master`, `release/0.7.1` e `temp/homologacao-apamind`
+  apagados, `v0.7.1` repontada para a linha consolidada e `git gc` aplicado (`.git` de ~917 MB para
+  ~4 MB). Resta opcionalmente apagar a branch remota `ci/fluxo-por-pr`, já mesclada.
+- Testar a atualização para 0.7.3 sobre a instalação MSI 0.7.2 desta máquina: o instalador NSIS deve
+  desinstalar o MSI e deixar uma única entrada.
+- Instalador sem assinatura de código: sem certificado, o SmartScreen avisa "editor desconhecido".
 - Testes manuais em desktop: links/anexos de ponta a ponta, impressão e instalador em máquina limpa.
 - Exportações usam download do WebView (sem diálogo nativo de salvar).
 - Migração de `withGlobalTauri` para imports de `@tauri-apps/api`.
