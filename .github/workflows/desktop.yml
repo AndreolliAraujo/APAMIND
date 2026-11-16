@@ -1,0 +1,35 @@
+name: Desktop (manual)
+
+# O build Tauri é lento e depende de toolchain nativa; roda sob demanda, não a
+# cada push. Para executar: Actions > "Desktop (manual)" > Run workflow.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cargo-check:
+    name: cargo check (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Dependências do frontend
+        run: npm ci
+
+      - name: Build do frontend (necessário para o contexto Tauri)
+        run: npm run build
+
+      - name: cargo check
+        working-directory: src-tauri
+        run: cargo check -j 1

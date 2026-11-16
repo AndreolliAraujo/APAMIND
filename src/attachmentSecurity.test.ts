@@ -56,9 +56,16 @@ describe("validateAttachmentTarget", () => {
     expect(validateAttachmentTarget(value, false).kind).toBe("invalid"),
   );
 
-  it.each(["C:\\Users\\Ana\\shortcut.lnk", "file:///home/ana/script.sh", "file:///home/ana/payload%2Eexe"])(
-    "rejects executable and shortcut targets: %s",
-    (value) => expect(validateAttachmentTarget(value, /^https?:/i.test(value)).kind).toBe("invalid"),
+  it.each([
+    "C:\\Users\\Ana\\shortcut.lnk",
+    "file:///home/ana/script.sh",
+    "file:///home/ana/payload%2Eexe",
+    // convenções do Windows que escondem a extensão real
+    "C:\\Users\\Ana\\payload.exe.",
+    "C:\\Users\\Ana\\payload.exe ",
+    "C:\\Users\\Ana\\payload.exe::$DATA",
+  ])("rejects executable and shortcut targets: %s", (value) =>
+    expect(validateAttachmentTarget(value, /^https?:/i.test(value)).kind).toBe("invalid"),
   );
 
   it.each([

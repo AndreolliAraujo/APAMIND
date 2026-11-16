@@ -21,7 +21,7 @@
     "preview": "vite preview",
     "tauri:dev": "tauri dev",
     "tauri:build": "node build.cjs",
-    "ci": "npm run typecheck && npm run lint && npm run test && npm run build"
+    "ci": "npm run typecheck && npm run lint && npm run format:check && npm run test && npm run build"
   },
   "dependencies": {
     "@tauri-apps/plugin-fs": "^2.7.1",

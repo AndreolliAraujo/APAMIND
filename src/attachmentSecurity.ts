@@ -32,20 +32,29 @@ const BLOCKED_EXTENSIONS = new Set([
   ".scf",
 ]);
 
+// Extrai a extensão considerando as convenções do Windows: pontos e espaços
+// finais são ignorados pelo sistema de arquivos (`evil.exe.` abre `evil.exe`) e
+// fluxos alternativos (`evil.exe::$DATA`) também resolvem para o executável.
+function extensionOf(value: string): string {
+  const withoutQuery = value.split(/[?#]/, 1)[0];
+  const fileName = withoutQuery.split(/[\\/]/).pop() ?? "";
+  const decoded = (() => {
+    try {
+      return decodeURIComponent(fileName);
+    } catch {
+      return fileName;
+    }
+  })();
+  const normalized = decoded
+    .split(":")[0]
+    .replace(/[. ]+$/, "")
+    .toLowerCase();
+  return normalized.match(/\.[^.]+$/)?.[0] ?? "";
+}
+
 function hasBlockedExtension(value: string): boolean {
-  try {
-    const pathname =
-      /^https?:\/\//i.test(value) || /^file:/i.test(value) ? new URL(value).pathname : value.split(/[?#]/, 1)[0];
-    const decodedPathname = decodeURIComponent(pathname);
-    const extension = decodedPathname
-      .split(/[\\/]/)
-      .pop()
-      ?.toLowerCase()
-      .match(/\.[^.]+$/)?.[0];
-    return extension ? BLOCKED_EXTENSIONS.has(extension) : false;
-  } catch {
-    return false;
-  }
+  const extension = extensionOf(value);
+  return extension !== "" && BLOCKED_EXTENSIONS.has(extension);
 }
 
 function hasParentTraversal(path: string): boolean {
