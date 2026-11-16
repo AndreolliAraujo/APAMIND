@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.7.3 — 2026-11-16
+
+Correção do empacotamento Windows. Sem mudança de código, de formato persistido ou de comportamento
+do aplicativo: os dados de 0.7.2 são lidos normalmente.
+
+### Instalador
+
+- **Correção:** o MSI não substituía a versão anterior. O template WiX do Tauri 2.11 declara
+  `AllowDowngrades="yes"` e a tabela `Upgrade` gerada marca a versão anterior apenas como detectada
+  (`OnlyDetect`). Sem versão a remover, o `RemoveExistingProducts` não fazia nada e a instalação nova
+  se registrava como um segundo produto na mesma pasta — duas entradas (`0.7.1` e `0.7.2`) apontando
+  para `C:\Program Files\APAMIND`, com o `apamind.exe` já na versão nova.
+- O bundle Windows passa a ser **somente NSIS** (`bundle.targets: ["nsis"]`) com
+  `installMode: currentUser`: instala em `%LOCALAPPDATA%\APAMIND`, sem exigir administrador. O NSIS
+  detecta a instalação MSI anterior e a desinstala antes de instalar (pedindo confirmação); entre
+  versões NSIS, oferece desinstalar antes (padrão) ou reinstalar por cima. Nos dois casos resta
+  **uma única** entrada em Aplicativos instalados.
+- `README.md`, `INSTALL_CHECKLIST.md` e `docs/CONTEXTO_DO_PROJETO.md` documentam o fluxo de
+  instalação/atualização e o motivo de o MSI ter sido descontinuado.
+
 ## 0.7.2 — 2026-11-15
 
 Consolidação de repositório, arquitetura, recuperação de dados, links e qualidade.
