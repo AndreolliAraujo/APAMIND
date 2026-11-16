@@ -8,10 +8,18 @@ on:
 permissions:
   contents: read
 
+# Cancela execuções antigas do mesmo ref (push + PR do mesmo branch não rodam duas vezes).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   quality:
+    # O nome do job é o nome do check exigido pelo ruleset da main.
+    # Renomear quebra o merge até o ruleset ser atualizado.
     name: typecheck, lint, format, test, build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -23,6 +31,7 @@ jobs:
       - name: Instalar dependências pelo lockfile
         run: npm ci
 
+      # Falha rápida: tipo, estilo e formatação antes dos testes e do build.
       - name: Typecheck
         run: npm run typecheck
 
