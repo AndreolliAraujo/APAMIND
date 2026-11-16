@@ -51,7 +51,9 @@ Build web de produção:
 npm.cmd run build
 ```
 
-O resultado fica em `dist/`.
+O resultado fica em `dist/`. O script chama `vite-build.cjs`, que redireciona `TEMP`/`TMP` para
+`.tmp/vite-build-temp`: neste ambiente o esbuild falha ao remover temporários na pasta padrão do
+Windows (`Access is denied`).
 
 ## Gerar instaladores desktop
 

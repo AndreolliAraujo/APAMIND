@@ -9,7 +9,7 @@
   "description": "APAMIND - Editor local de mapas mentais premium",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node vite-build.cjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --max-warnings=0",
     "lint:fix": "eslint src --fix",
