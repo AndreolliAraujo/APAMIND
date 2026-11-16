@@ -62,7 +62,7 @@ describe("collectBrokenMapLinks", () => {
 
     const broken = collectBrokenMapLinks([a, linked]);
     expect(broken).toHaveLength(1);
-    expect(broken[0]).toMatchObject({ mapId: b.id, nodeId: "n", attachmentId: "x", targetId: "INEXISTENTE" });
+    expect(broken[0]).toMatchObject({ mapId: b.id, nodeId: node.id, attachmentId: "x", targetId: "INEXISTENTE" });
   });
 
   it("não reporta referências válidas", () => {
