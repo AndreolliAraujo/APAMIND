@@ -48,6 +48,8 @@ locais; não publica instaladores.
 - [ ] Testar a atualização: instalar a versão anterior e depois a nova; deve restar **uma única**
       entrada em Aplicativos instalados, com a versão nova.
 - [ ] Testar a migração de uma instalação MSI antiga: o NSIS deve desinstalá-la antes de instalar.
+      Execute o instalador **como administrador**; sem elevação o Windows Installer responde erro 1601
+      ("O serviço Windows Installer não pôde ser acessado").
 - [ ] Configurar certificado de assinatura para distribuir instaladores Windows sem aviso de editor desconhecido.
 - [ ] Definir canal de distribuição, política de atualização e processo de release.
 - [ ] Criar e validar backups de dados de teste; nunca usar workspace real em experimentos.
