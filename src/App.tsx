@@ -69,9 +69,11 @@ function escapeHtml(s: string) {
 // Resultado é HTML seguro (entidades); URLs dos links são validadas por scheme.
 // DOMPurify disponível caso queira sanitizar conteúdo importado no futuro.
 
-function renderMarkdown(text: string) {
+// Links em notas NÃO navegam o WebView: o clique é interceptado e delegado ao
+// mesmo caminho validado usado pelos anexos (attachmentSecurity + Opener).
+function renderMarkdown(text: string, onOpenUrl?: (url: string) => void) {
   if (!text) return null;
-  const SCHEME_OK = /^(https?:|mailto:|tel:)/i;
+  const SCHEME_OK = /^https?:\/\//i;
   const Q = String.fromCharCode(34); // aspa dupla
   const lines = text.split("\n");
   return lines.map((line, i) => {
@@ -85,10 +87,19 @@ function renderMarkdown(text: string) {
       .replace(/\[(.+?)\]\((.+?)\)/g, (_m: string, label: string, url: string) => {
         if (!SCHEME_OK.test(url)) return label;
         const safeUrl = url.replace(/"/g, String.fromCharCode(38) + "quot;");
-        return "<a href=" + Q + safeUrl + Q + " target=" + Q + "_blank" + Q + " rel=" + Q + "noopener noreferrer" + Q + " class=" + Q + "underline text-indigo-400" + Q + ">" + label + "</a>";
+        return "<a href=" + Q + safeUrl + Q + " class=" + Q + "underline text-indigo-400 cursor-pointer" + Q + ">" + label + "</a>";
       });
     const safe = DOMPurify.sanitize(escaped);
-    return <p key={i} className="text-xs leading-relaxed" dangerouslySetInnerHTML={{ __html: safe }} />;
+    const handleClick = onOpenUrl
+      ? (event: React.MouseEvent<HTMLParagraphElement>) => {
+          const anchor = (event.target as HTMLElement).closest("a");
+          if (!anchor) return;
+          event.preventDefault();
+          const href = anchor.getAttribute("href") ?? "";
+          if (href) onOpenUrl(href);
+        }
+      : undefined;
+    return <p key={i} className="text-xs leading-relaxed" onClick={handleClick} dangerouslySetInnerHTML={{ __html: safe }} />;
   });
 }
 
@@ -631,6 +642,10 @@ export default function App() {
       openBrowserUrl: url => { window.open(url, "_blank", "noopener,noreferrer"); },
     });
   }
+  // Link de nota Markdown: usa o mesmo caminho validado dos anexos.
+  function openNoteLink(url: string) {
+    void openAttach({ id: `link-${Date.now()}`, type: "url", name: url, path: url });
+  }
   // Modal de anexos por nó (clicar no ícone do nó)
   const [nodeAttachModal, setNodeAttachModal] = useState<string | null>(null);
 
@@ -719,8 +734,13 @@ export default function App() {
 
   function deleteMap(id: string) {
     const current = wsRef.current;
+    const target = current.maps.find(m => m.id === id);
+    if (!target) return;
     const references = countMapReferences(current.maps, id);
-    if (references > 0 && !window.confirm(`Este mapa é referenciado por ${references} link(s) em outros mapas. Excluir mesmo assim?`)) return;
+    const referenceWarning = references > 0
+      ? `\n\nAtenção: ${references} link(s) em outros mapas apontam para ele e ficarão quebrados.`
+      : "";
+    if (!window.confirm(`Excluir o mapa "${target.title}"? A exclusão de um mapa não pode ser desfeita.${referenceWarning}`)) return;
     const wasActive = current.active === id;
     const newWs = removeMapFromWorkspace(current, id);
     if (newWs === current) return;
@@ -1548,7 +1568,7 @@ export default function App() {
               </button>
               {selected.markdown && (
                 <div className={`mt-2 p-2 rounded-lg border max-h-24 overflow-y-auto custom-scroll ${isDark ? "border-white/5 bg-white/[.03]" : "border-black/5 bg-slate-50"}`}>
-                  {renderMarkdown(selected.markdown)}
+                  {renderMarkdown(selected.markdown, openNoteLink)}
                 </div>
               )}
             </div>
