@@ -98,7 +98,10 @@ O pacote é um único `.exe` NSIS, **por usuário** (não pede administrador) e 
 são removidos ao desinstalar.
 
 - **0.7.3 sobre uma instalação MSI anterior:** o NSIS detecta a instalação WiX/MSI e sempre a
-  desinstala antes de instalar, pedindo confirmação (o UAC aparece porque o MSI é por máquina).
+  desinstala antes de instalar. Como o MSI é por máquina (`C:\Program Files`), execute **o instalador
+  como administrador** nesse primeiro caso (botão direito → Executar como administrador). Rodando como
+  usuário comum, o Windows Installer responde com o erro 1601 — "O serviço Windows Installer não pôde
+  ser acessado". Comportamento confirmado na migração da 0.7.2 para a 0.7.3.
 - **NSIS sobre NSIS:** o instalador detecta a versão anterior e oferece "desinstalar antes de
   instalar" (padrão) ou reinstalar por cima. Nos dois casos fica **uma única** entrada em Aplicativos
   instalados.

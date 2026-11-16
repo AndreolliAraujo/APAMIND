@@ -96,8 +96,10 @@ src/
   em `Upgrade` fica com `OnlyDetect` (atributo 257): `RemoveExistingProducts` não tem alvo e a
   instalação se registra como um segundo produto.
 - Fluxo do NSIS: detecta instalação WiX/MSI por `DisplayName`+`Publisher` nas chaves de desinstalação
-  e a remove antes de instalar (UAC, porque o MSI é por máquina); entre versões NSIS oferece
-  desinstalar antes (padrão) ou reinstalar por cima. Sempre resta uma única entrada.
+  e a remove antes de instalar; entre versões NSIS oferece desinstalar antes (padrão) ou reinstalar por
+  cima. Sempre resta uma única entrada. Como o MSI é por máquina e o NSIS pede nível `user`, a
+  migração MSI→NSIS exige executar o instalador **como administrador**; sem elevação o `msiexec`
+  falha com erro 1601 (verificado na migração 0.7.2 → 0.7.3).
 - Alternativa descartada: manter MSI com template WiX próprio exigiria uma cópia do template no
   repositório, sujeita a divergir a cada atualização do Tauri. O NSIS resolve upgrade com o template
   oficial.
@@ -121,8 +123,9 @@ src/
 - **Limpeza remota da Fase C: concluída** — `master`, `release/0.7.1` e `temp/homologacao-apamind`
   apagados, `v0.7.1` repontada para a linha consolidada e `git gc` aplicado (`.git` de ~917 MB para
   ~4 MB). Resta opcionalmente apagar a branch remota `ci/fluxo-por-pr`, já mesclada.
-- Testar a atualização para 0.7.3 sobre a instalação MSI 0.7.2 desta máquina: o instalador NSIS deve
-  desinstalar o MSI e deixar uma única entrada.
+- **Migração MSI → NSIS: validada** na máquina de desenvolvimento — o instalador 0.7.3 (executado como
+  administrador) removeu o MSI 0.7.2, apagou `C:\Program Files\APAMIND` e deixou uma única entrada
+  `APAMIND 0.7.3` em `%LOCALAPPDATA%\APAMIND`, com `workspace.json` intacto.
 - Instalador sem assinatura de código: sem certificado, o SmartScreen avisa "editor desconhecido".
 - Testes manuais em desktop: links/anexos de ponta a ponta, impressão e instalador em máquina limpa.
 - Exportações usam download do WebView (sem diálogo nativo de salvar).

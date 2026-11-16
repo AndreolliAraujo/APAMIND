@@ -12,11 +12,13 @@ do aplicativo: os dados de 0.7.2 são lidos normalmente.
   (`OnlyDetect`). Sem versão a remover, o `RemoveExistingProducts` não fazia nada e a instalação nova
   se registrava como um segundo produto na mesma pasta — duas entradas (`0.7.1` e `0.7.2`) apontando
   para `C:\Program Files\APAMIND`, com o `apamind.exe` já na versão nova.
-- O bundle Windows passa a ser **somente NSIS** (`bundle.targets: ["nsis"]`) com
-  `installMode: currentUser`: instala em `%LOCALAPPDATA%\APAMIND`, sem exigir administrador. O NSIS
-  detecta a instalação MSI anterior e a desinstala antes de instalar (pedindo confirmação); entre
-  versões NSIS, oferece desinstalar antes (padrão) ou reinstalar por cima. Nos dois casos resta
-  **uma única** entrada em Aplicativos instalados.
+- O bundle Windows passa a ser **somente NSIS**, definido em `src-tauri/tauri.windows.conf.json`
+  (configuração por plataforma) com `installMode: currentUser`: instala em `%LOCALAPPDATA%\APAMIND`,
+  sem exigir administrador. O NSIS detecta a instalação MSI anterior e a desinstala antes de instalar —
+  nesse caso é preciso executar o instalador **como administrador**, porque o MSI é por máquina e o
+  NSIS pede nível `user`; sem elevação o `msiexec` falha com erro 1601. Entre versões NSIS, oferece
+  desinstalar antes (padrão) ou reinstalar por cima. Nos dois casos resta **uma única** entrada em
+  Aplicativos instalados.
 - `README.md`, `INSTALL_CHECKLIST.md` e `docs/CONTEXTO_DO_PROJETO.md` documentam o fluxo de
   instalação/atualização e o motivo de o MSI ter sido descontinuado.
 
