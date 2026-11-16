@@ -3,6 +3,7 @@
 
 import { SCHEMA_VERSION, legacyLinksToAttachments, uid, type EdgeStyle, type NodeShape, type Workspace } from "../core/model";
 import { createMap } from "../core/templates";
+import { validateWorkspaceIntegrity } from "../core/validation";
 
 // Chaves de armazenamento local: v6 é a atual, v5 é legado de migração.
 export const SK = "apamind.v6";
@@ -12,6 +13,16 @@ export class WorkspaceRecoveryError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "WorkspaceRecoveryError";
+  }
+}
+
+/** Arquivo gravado por uma versão mais recente do app: recusar sem alterar. */
+export class WorkspaceFutureVersionError extends WorkspaceRecoveryError {
+  readonly version: number;
+  constructor(version: number, source: string) {
+    super(`A cópia ${source} foi criada por uma versão mais recente do ApaMind (formato ${version}). Nenhum arquivo foi alterado; atualize o aplicativo para abri-la.`);
+    this.name = "WorkspaceFutureVersionError";
+    this.version = version;
   }
 }
 
@@ -65,7 +76,20 @@ export function parseStoredWorkspace(raw: string, source: string): Workspace {
       !candidate.maps.every(m => m && typeof m === "object" && Array.isArray(m.nodes) && Array.isArray(m.edges))) {
     throw new WorkspaceRecoveryError(`A cópia ${source} não tem um workspace recuperável e foi preservada.`);
   }
-  return migrateWorkspace(candidate);
+
+  // Versão futura é recusada sem rebaixar o formato nem tocar no conteúdo.
+  const futureVersion = candidate.maps
+    .map(m => (m as { schemaVersion?: unknown }).schemaVersion)
+    .find(v => typeof v === "number" && Number.isFinite(v) && v > SCHEMA_VERSION);
+  if (typeof futureVersion === "number") throw new WorkspaceFutureVersionError(futureVersion, source);
+
+  const migrated = migrateWorkspace(candidate);
+  const issues = validateWorkspaceIntegrity(migrated);
+  if (issues.length > 0) {
+    const detail = issues.slice(0, 3).map(issue => `${issue.path}: ${issue.message}`).join(" | ");
+    throw new WorkspaceRecoveryError(`A cópia ${source} tem dados estruturais inválidos e foi preservada. ${detail}`);
+  }
+  return migrated;
 }
 
 export function sameWorkspace(a: Workspace, b: Workspace): boolean {

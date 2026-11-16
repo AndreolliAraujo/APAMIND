@@ -1,6 +1,6 @@
 // Validação do formato de mapa recebido por importação.
 
-import type { AttachType, EdgeStyle, MMap, NodeShape } from "./model";
+import type { AttachType, EdgeStyle, MMap, NodeShape, Workspace } from "./model";
 import { ATTACH_TYPES, TEMPLATES, legacyLinksToAttachments, uid } from "./model";
 
 // ── Validador central de mapa ─────────────────────────────────────
@@ -90,4 +90,67 @@ export function validateMMap(raw: unknown): { ok: true; map: MMap } | { ok: fals
     edges: (r.edges as any[]).map((e) => ({ ...e, id: uid("e"), source: idRemap.get(e.source)!, target: idRemap.get(e.target)! })),
   };
   return { ok: true, map };
+}
+
+export interface WorkspaceIssue {
+  code: string;
+  message: string;
+  path: string;
+}
+
+/**
+ * Valida a integridade estrutural de um workspace JÁ migrado, sem reatribuir ids.
+ * Usada na carga para recusar dados que quebrariam a interface, preservando o arquivo.
+ */
+export function validateWorkspaceIntegrity(ws: Workspace): WorkspaceIssue[] {
+  const issues: WorkspaceIssue[] = [];
+  const add = (code: string, message: string, path: string) => issues.push({ code, message, path });
+
+  if (!ws || !Array.isArray(ws.maps) || ws.maps.length === 0) {
+    add("no-maps", "Workspace sem mapas.", "maps");
+    return issues;
+  }
+
+  const mapIds = new Set<string>();
+  ws.maps.forEach((map, mi) => {
+    const at = `maps[${mi}]`;
+    if (!map || typeof map !== "object") { add("bad-map", "Mapa inválido.", at); return; }
+    if (typeof map.id !== "string" || map.id === "") add("bad-map-id", "Mapa sem id.", `${at}.id`);
+    else if (mapIds.has(map.id)) add("duplicate-map-id", `Id de mapa duplicado: ${map.id}.`, `${at}.id`);
+    else mapIds.add(map.id);
+
+    if (typeof map.title !== "string") add("bad-map-title", "Mapa sem título.", `${at}.title`);
+    if (!Array.isArray(map.nodes)) { add("bad-nodes", "Campo nodes deve ser lista.", `${at}.nodes`); return; }
+    if (!Array.isArray(map.edges)) { add("bad-edges", "Campo edges deve ser lista.", `${at}.edges`); return; }
+
+    const nodeIds = new Set<string>();
+    map.nodes.forEach((node, ni) => {
+      const nat = `${at}.nodes[${ni}]`;
+      if (!node || typeof node !== "object") { add("bad-node", "Nó inválido.", nat); return; }
+      if (typeof node.id !== "string" || node.id === "") add("bad-node-id", "Nó sem id.", `${nat}.id`);
+      else if (nodeIds.has(node.id)) add("duplicate-node-id", `Id de nó duplicado: ${node.id}.`, `${nat}.id`);
+      else nodeIds.add(node.id);
+
+      if (typeof node.title !== "string") add("bad-node-title", "Nó sem título.", `${nat}.title`);
+      if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) add("bad-node-position", "Nó sem posição válida.", nat);
+      if (typeof node.tone !== "number" || !Number.isFinite(node.tone)) add("bad-node-tone", "Nó sem tom válido.", nat);
+      if (node.attachments !== undefined && (!Array.isArray(node.attachments) || node.attachments.some(a => !a || typeof a.id !== "string" || typeof a.path !== "string"))) {
+        add("bad-attachments", "Anexos inválidos.", `${nat}.attachments`);
+      }
+    });
+
+    const edgeIds = new Set<string>();
+    map.edges.forEach((edge, ei) => {
+      const eat = `${at}.edges[${ei}]`;
+      if (!edge || typeof edge !== "object") { add("bad-edge", "Aresta inválida.", eat); return; }
+      if (typeof edge.id !== "string" || edge.id === "") add("bad-edge-id", "Aresta sem id.", `${eat}.id`);
+      else if (edgeIds.has(edge.id)) add("duplicate-edge-id", `Id de aresta duplicado: ${edge.id}.`, `${eat}.id`);
+      else edgeIds.add(edge.id);
+
+      if (typeof edge.source !== "string" || !nodeIds.has(edge.source)) add("orphan-edge-source", `Aresta com origem inexistente: ${String(edge.source)}.`, `${eat}.source`);
+      if (typeof edge.target !== "string" || !nodeIds.has(edge.target)) add("orphan-edge-target", `Aresta com destino inexistente: ${String(edge.target)}.`, `${eat}.target`);
+    });
+  });
+
+  return issues;
 }
