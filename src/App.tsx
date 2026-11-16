@@ -10,7 +10,7 @@ import {
   TEMPLATES, ATTACH_TYPES, ATTACH_ICONS,
   uid, clamp, mkNode, mkEdge,
 } from "./core/model";
-import { collectBrokenMapLinks } from "./core/references";
+import { collectBrokenMapLinks, countMapReferences, normalizeReferenceKey } from "./core/references";
 import { edgePath } from "./core/geometry";
 import { TONES, TONE_HEX, SHAPES, shapeClass } from "./ui/theme";
 import { createMap } from "./core/templates";
@@ -556,6 +556,11 @@ export default function App() {
   function confirmAttach(path: string, name: string) {
     if (!attachModal) return;
     const storedPath = attachModal.type === "url" ? (normalizeSchemeLessWebAddress(path) ?? path) : path;
+    const existing = nodeMap.get(attachModal.nodeId)?.attachments ?? [];
+    if (existing.some(item => normalizeReferenceKey(item.path) === normalizeReferenceKey(storedPath))) {
+      window.alert("Este destino já está anexado a este nó.");
+      return;
+    }
     pushUndo();
     const att: Attachment = { id: uid("att"), type: attachModal.type, name: name || storedPath.split(/[\\/]/).pop() || "Arquivo", path: storedPath };
     updateNodeFn(attachModal.nodeId, {
@@ -669,6 +674,8 @@ export default function App() {
 
   function deleteMap(id: string) {
     const current = wsRef.current;
+    const references = countMapReferences(current.maps, id);
+    if (references > 0 && !window.confirm(`Este mapa é referenciado por ${references} link(s) em outros mapas. Excluir mesmo assim?`)) return;
     const wasActive = current.active === id;
     const newWs = removeMapFromWorkspace(current, id);
     if (newWs === current) return;

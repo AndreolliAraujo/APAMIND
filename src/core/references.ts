@@ -35,6 +35,30 @@ export function collectBrokenMapLinks(maps: MMap[]): BrokenMapLink[] {
   return broken;
 }
 
+/** Quantas referências `map://` apontam para o mapa informado. */
+export function countMapReferences(maps: MMap[], targetMapId: string): number {
+  let count = 0;
+  for (const map of maps) {
+    for (const node of map.nodes) {
+      for (const att of node.attachments ?? []) {
+        if (mapReferenceTarget(att.path) === targetMapId) count += 1;
+      }
+    }
+  }
+  return count;
+}
+
+/**
+ * Normaliza um destino para comparação de duplicatas: URLs e referências
+ * internas são comparadas sem espaços nas pontas; caminhos locais também
+ * ignoram diferença de separador e de caixa.
+ */
+export function normalizeReferenceKey(path: string): string {
+  const value = String(path ?? "").trim();
+  if (/^(https?:\/\/|map:\/\/|file:)/i.test(value)) return value;
+  return value.replace(/[\\/]/g, "\\").toLowerCase();
+}
+
 /**
  * Reescreve referências `map://<idAntigo>` para `map://<idNovo>` segundo o
  * mapeamento fornecido. Referências sem correspondência são mantidas intactas

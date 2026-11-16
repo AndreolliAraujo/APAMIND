@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Attachment } from "./model";
 import { mkNode } from "./model";
 import { createMap } from "./templates";
-import { mapReferenceTarget, remapMapReferences, collectBrokenMapLinks } from "./references";
+import { mapReferenceTarget, remapMapReferences, collectBrokenMapLinks, countMapReferences, normalizeReferenceKey } from "./references";
 
 function mapWithAttachment(attachment: Attachment) {
   const map = createMap("m", "Livre");
@@ -74,5 +74,34 @@ describe("collectBrokenMapLinks", () => {
     const linked = { ...b, nodes: [...b.nodes, node] };
 
     expect(collectBrokenMapLinks([a, linked])).toHaveLength(0);
+  });
+});
+
+describe("countMapReferences", () => {
+  it("conta referências ao mapa alvo e ignora as demais", () => {
+    const a = createMap("A", "Livre");
+    const b = createMap("B", "Livre");
+    const node = mkNode("n", "", 0, 0, 0, "card", {
+      attachments: [
+        { id: "r1", type: "map", name: "A", path: `map://${a.id}` },
+        { id: "r2", type: "map", name: "A de novo", path: `map://${a.id}` },
+        { id: "r3", type: "map", name: "outro", path: "map://NAO-EXISTE" },
+      ],
+    });
+    const linked = { ...b, nodes: [...b.nodes, node] };
+
+    expect(countMapReferences([a, linked], a.id)).toBe(2);
+    expect(countMapReferences([a, linked], b.id)).toBe(0);
+  });
+});
+
+describe("normalizeReferenceKey", () => {
+  it("compara caminhos locais ignorando separador e caixa", () => {
+    expect(normalizeReferenceKey("C:/Users/Ana/Doc.PDF")).toBe(normalizeReferenceKey("c:\\users\\ana\\doc.pdf"));
+  });
+
+  it("preserva a caixa de URLs e referências internas", () => {
+    expect(normalizeReferenceKey("  https://Exemplo.com/A  ")).toBe("https://Exemplo.com/A");
+    expect(normalizeReferenceKey("map://ABC")).toBe("map://ABC");
   });
 });

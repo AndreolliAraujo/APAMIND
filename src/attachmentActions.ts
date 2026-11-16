@@ -32,13 +32,9 @@ export async function openAttachment(att: Attachment, runtime: AttachmentOpenRun
     return;
   }
 
+  // Extensões bloqueadas e validação de esquema/caminho ficam em um único
+  // lugar (attachmentSecurity.validateAttachmentTarget) para não divergirem.
   const extension = raw.split(/[?#]/)[0].split(/[/\\]/).pop()?.toLowerCase() ?? "";
-  const dangerousExtensions = new Set([".exe", ".bat", ".cmd", ".sh", ".ps1", ".psm1", ".vbs", ".vba", ".jar", ".msi", ".scr", ".com", ".wsf", ".hta"]);
-  if (!/^https?:\/\//i.test(raw) && dangerousExtensions.has(extension)) {
-    runtime.alert(`Abertura bloqueada: extensão executável (${extension}) não permitida por segurança.`);
-    return;
-  }
-
   const target = validateAttachmentTarget(raw, att.type === "url");
   if (target.kind === "invalid") {
     runtime.alert(`Abertura bloqueada: ${target.reason}`);
