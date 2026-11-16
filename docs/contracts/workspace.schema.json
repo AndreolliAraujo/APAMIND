@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://apamind.local/contracts/workspace.schema.json",
+  "title": "ApaMind Workspace",
+  "description": "Contrato do arquivo workspace.json do ApaMind. Documento de referência; a validação executável vive em src/core/validation.ts (importação) e src/storage/recovery.ts (carga). additionalProperties é mantido true em todos os níveis para permitir compatibilidade com versões futuras sem rejeitar dados.",
+  "type": "object",
+  "required": ["active", "maps"],
+  "additionalProperties": true,
+  "properties": {
+    "active": { "type": "string", "description": "Id do mapa ativo." },
+    "maps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/map" }
+    }
+  },
+  "$defs": {
+    "map": {
+      "type": "object",
+      "required": ["id", "title", "template", "ts", "nodes", "edges"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "template": {
+          "enum": [
+            "Modelo A", "Radial", "Hierarquico", "Fluxograma", "Arvore",
+            "Arvore Direita", "Arvore Esquerda", "Organograma", "Espinha de Peixe",
+            "Livre", "Kanban", "Timeline"
+          ]
+        },
+        "ts": { "type": "string", "format": "date-time" },
+        "schemaVersion": { "type": "integer" },
+        "collapsedIds": { "type": "array", "items": { "type": "string" } },
+        "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+        "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } }
+      }
+    },
+    "node": {
+      "type": "object",
+      "required": ["id", "title", "x", "y", "tone", "shape"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "note": { "type": "string" },
+        "markdown": { "type": "string" },
+        "checklist": { "type": "array", "items": { "$ref": "#/$defs/checkItem" } },
+        "icon": { "type": "string", "description": "Emoji." },
+        "links": { "type": "array", "items": { "$ref": "#/$defs/hyperlink" } },
+        "attachments": { "type": "array", "items": { "$ref": "#/$defs/attachment" } },
+        "collapsed": { "type": "boolean", "description": "@deprecated: estado via map.collapsedIds." },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "tone": { "type": "integer", "minimum": 0 },
+        "shape": { "enum": ["card", "rect", "circle", "capsule", "hex"] },
+        "scale": { "type": "number" },
+        "borderColor": { "type": "string" }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["id", "source", "target"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string" },
+        "source": { "type": "string" },
+        "target": { "type": "string" },
+        "style": { "enum": ["solid", "dashed", "dotted"] }
+      }
+    },
+    "attachment": {
+      "type": "object",
+      "required": ["id", "type", "name", "path"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "enum": ["url", "image", "video", "audio", "pdf", "doc", "xls", "map"] },
+        "name": { "type": "string" },
+        "path": { "type": "string", "description": "URL web, caminho local ou referência map://<id>." }
+      }
+    },
+    "hyperlink": {
+      "type": "object",
+      "required": ["url", "label"],
+      "additionalProperties": true,
+      "properties": {
+        "url": { "type": "string" },
+        "label": { "type": "string" }
+      }
+    },
+    "checkItem": {
+      "type": "object",
+      "required": ["text", "done"],
+      "additionalProperties": true,
+      "properties": {
+        "text": { "type": "string" },
+        "done": { "type": "boolean" }
+      }
+    }
+  }
+}

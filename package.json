@@ -1,0 +1,59 @@
+{
+  "name": "apamind",
+  "private": true,
+  "version": "0.7.1",
+  "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "description": "APAMIND - Editor local de mapas mentais premium",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --max-warnings=0",
+    "lint:fix": "eslint src --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css,json,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json,md}\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "preview": "vite preview",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "node build.cjs",
+    "ci": "npm run typecheck && npm run lint && npm run test && npm run build"
+  },
+  "dependencies": {
+    "@tauri-apps/plugin-fs": "^2.7.1",
+    "clsx": "2.1.1",
+    "dompurify": "^3.4.17",
+    "fflate": "^0.8.3",
+    "framer-motion": "^12.40.0",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "tailwind-merge": "3.4.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@tailwindcss/vite": "4.1.17",
+    "@tauri-apps/cli": "^2.11.2",
+    "@types/node": "22.19.17",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.1",
+    "@vitejs/plugin-react-swc": "^4.3.3",
+    "@vitest/ui": "^4.1.12",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "jsdom": "^25.0.1",
+    "prettier": "^3.9.6",
+    "tailwindcss": "4.1.17",
+    "terser": "^5.51.2",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.67.0",
+    "vite": "7.3.7",
+    "vitest": "^4.1.12"
+  }
+}

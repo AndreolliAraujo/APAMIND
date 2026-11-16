@@ -1,0 +1,48 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "productName": "ApaMind Homologação Diagnóstico",
+  "mainBinaryName": "apamind-homologacao-diagnostico",
+  "version": "0.7.1",
+  "identifier": "com.apamind.homologacao.diagnostico",
+  "build": {
+    "beforeBuildCommand": "",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "security": {
+      "capabilities": [
+        "default",
+        {
+          "identifier": "diagnostico-window-close",
+          "windows": ["main"],
+          "permissions": ["core:window:allow-close"]
+        }
+      ]
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "ApaMind Homologação Diagnóstico",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1024,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false,
+        "dataDirectory": "webview2"
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "windows": {
+      "webviewInstallMode": { "type": "skip" },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["PortugueseBR"],
+        "startMenuFolder": "ApaMind Homologação Diagnóstico"
+      }
+    }
+  }
+}

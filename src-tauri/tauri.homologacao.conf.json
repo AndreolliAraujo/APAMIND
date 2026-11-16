@@ -1,0 +1,43 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "productName": "ApaMind Homologação",
+  "mainBinaryName": "apamind-homologacao",
+  "version": "0.7.1",
+  "identifier": "com.apamind.homologacao",
+  "app": {
+    "security": {
+      "capabilities": [
+        "default",
+        {
+          "identifier": "homologacao-window-close",
+          "windows": ["main"],
+          "permissions": ["core:window:allow-close", "core:window:allow-destroy"]
+        }
+      ]
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "ApaMind Homologação",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1024,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "windows": {
+      "webviewInstallMode": { "type": "skip" },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["PortugueseBR"],
+        "startMenuFolder": "ApaMind Homologação"
+      }
+    }
+  }
+}
