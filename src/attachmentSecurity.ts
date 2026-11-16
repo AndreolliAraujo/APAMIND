@@ -1,24 +1,47 @@
 export type AttachmentTarget =
-  | { kind: "url"; value: string }
-  | { kind: "path"; value: string }
-  | { kind: "invalid"; reason: string };
+  { kind: "url"; value: string } | { kind: "path"; value: string } | { kind: "invalid"; reason: string };
 
 const WINDOWS_ABSOLUTE_PATH = /^[a-z]:[\\/]/i;
 const WINDOWS_UNC_PATH = /^(?:\\\\|\/\/)/;
 const SCHEME = /^[a-z][a-z\d+.-]*:/i;
-const SCHEMELESS_WEB_ADDRESS = /^(?:localhost|(?:[a-z\d](?:[a-z\d-]*[a-z\d])?\.)+[a-z]{2,}|(?:\d{1,3}\.){3}\d{1,3}|\[[\da-f:]+\])(?::\d{1,5})?(?:[/?#]|$)/i;
+const SCHEMELESS_WEB_ADDRESS =
+  /^(?:localhost|(?:[a-z\d](?:[a-z\d-]*[a-z\d])?\.)+[a-z]{2,}|(?:\d{1,3}\.){3}\d{1,3}|\[[\da-f:]+\])(?::\d{1,5})?(?:[/?#]|$)/i;
 const BLOCKED_EXTENSIONS = new Set([
-  ".exe", ".bat", ".cmd", ".sh", ".ps1", ".psm1", ".vbs", ".vba", ".jar", ".msi", ".scr", ".com", ".wsf", ".hta",
-  ".lnk", ".url", ".reg", ".cpl", ".pif", ".app", ".command", ".desktop", ".scf",
+  ".exe",
+  ".bat",
+  ".cmd",
+  ".sh",
+  ".ps1",
+  ".psm1",
+  ".vbs",
+  ".vba",
+  ".jar",
+  ".msi",
+  ".scr",
+  ".com",
+  ".wsf",
+  ".hta",
+  ".lnk",
+  ".url",
+  ".reg",
+  ".cpl",
+  ".pif",
+  ".app",
+  ".command",
+  ".desktop",
+  ".scf",
 ]);
 
 function hasBlockedExtension(value: string): boolean {
   try {
-    const pathname = /^https?:\/\//i.test(value) || /^file:/i.test(value)
-      ? new URL(value).pathname
-      : value.split(/[?#]/, 1)[0];
+    const pathname =
+      /^https?:\/\//i.test(value) || /^file:/i.test(value) ? new URL(value).pathname : value.split(/[?#]/, 1)[0];
     const decodedPathname = decodeURIComponent(pathname);
-    const extension = decodedPathname.split(/[\\/]/).pop()?.toLowerCase().match(/\.[^.]+$/)?.[0];
+    const extension = decodedPathname
+      .split(/[\\/]/)
+      .pop()
+      ?.toLowerCase()
+      .match(/\.[^.]+$/)?.[0];
     return extension ? BLOCKED_EXTENSIONS.has(extension) : false;
   } catch {
     return false;
@@ -26,7 +49,7 @@ function hasBlockedExtension(value: string): boolean {
 }
 
 function hasParentTraversal(path: string): boolean {
-  return path.split(/[\\/]+/).some(segment => segment === "..");
+  return path.split(/[\\/]+/).some((segment) => segment === "..");
 }
 
 export function normalizeSchemeLessWebAddress(raw: string): string | null {
@@ -46,9 +69,7 @@ export function validateAttachmentTarget(raw: string, allowWebUrl: boolean): Att
   const value = raw.trim();
   if (!value || value.includes("\0")) return { kind: "invalid", reason: "Caminho vazio ou inválido." };
   if (WINDOWS_UNC_PATH.test(value)) return { kind: "invalid", reason: "Caminhos de rede não são permitidos." };
-  const webAddress = /^https?:\/\//i.test(value)
-    ? value
-    : allowWebUrl ? normalizeSchemeLessWebAddress(value) : null;
+  const webAddress = /^https?:\/\//i.test(value) ? value : allowWebUrl ? normalizeSchemeLessWebAddress(value) : null;
   if (/^https?:\/\//i.test(value) && !allowWebUrl) {
     return { kind: "invalid", reason: "URLs só são permitidas em anexos do tipo URL." };
   }
@@ -64,7 +85,8 @@ export function validateAttachmentTarget(raw: string, allowWebUrl: boolean): Att
     }
   }
 
-  if (hasBlockedExtension(value)) return { kind: "invalid", reason: "Abertura de arquivos executáveis ou de atalho não é permitida." };
+  if (hasBlockedExtension(value))
+    return { kind: "invalid", reason: "Abertura de arquivos executáveis ou de atalho não é permitida." };
 
   if (/^file:/i.test(value)) {
     try {
@@ -72,7 +94,12 @@ export function validateAttachmentTarget(raw: string, allowWebUrl: boolean): Att
         return { kind: "invalid", reason: "O caminho contém navegação para diretórios superiores." };
       }
       const url = new URL(value);
-      if (url.protocol !== "file:" || (url.hostname && url.hostname.toLowerCase() !== "localhost") || url.search || url.hash) {
+      if (
+        url.protocol !== "file:" ||
+        (url.hostname && url.hostname.toLowerCase() !== "localhost") ||
+        url.search ||
+        url.hash
+      ) {
         return { kind: "invalid", reason: "URL de arquivo inválida." };
       }
       let path = decodeURIComponent(url.pathname);
@@ -80,7 +107,8 @@ export function validateAttachmentTarget(raw: string, allowWebUrl: boolean): Att
       if (!path.startsWith("/") && !WINDOWS_ABSOLUTE_PATH.test(path)) {
         return { kind: "invalid", reason: "O caminho do arquivo precisa ser absoluto." };
       }
-      if (hasParentTraversal(path)) return { kind: "invalid", reason: "O caminho contém navegação para diretórios superiores." };
+      if (hasParentTraversal(path))
+        return { kind: "invalid", reason: "O caminho contém navegação para diretórios superiores." };
       if (WINDOWS_ABSOLUTE_PATH.test(path)) path = path.replace(/\//g, "\\");
       return { kind: "path", value: path };
     } catch {
@@ -94,6 +122,7 @@ export function validateAttachmentTarget(raw: string, allowWebUrl: boolean): Att
   if (!WINDOWS_ABSOLUTE_PATH.test(value) && !value.startsWith("/")) {
     return { kind: "invalid", reason: "O caminho do arquivo precisa ser absoluto." };
   }
-  if (hasParentTraversal(value)) return { kind: "invalid", reason: "O caminho contém navegação para diretórios superiores." };
+  if (hasParentTraversal(value))
+    return { kind: "invalid", reason: "O caminho contém navegação para diretórios superiores." };
   return { kind: "path", value };
 }

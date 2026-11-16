@@ -9,7 +9,11 @@ export async function importJSON(file: File): Promise<ImportMapResult> {
   try {
     const text = await file.text();
     let data: unknown;
-    try { data = JSON.parse(text); } catch (e) { return { ok: false, error: "JSON inválido: " + String(e) }; }
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      return { ok: false, error: "JSON inválido: " + String(e) };
+    }
     const v = validateMMap(data);
     if (!v.ok) return { ok: false, error: v.error };
     return { ok: true, map: v.map };
@@ -24,7 +28,11 @@ export async function importWorkspaceBackup(file: File): Promise<ImportBackupRes
   try {
     const text = await file.text();
     let data: any;
-    try { data = JSON.parse(text); } catch (e) { return { ok: false, error: "JSON inválido: " + String(e) }; }
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      return { ok: false, error: "JSON inválido: " + String(e) };
+    }
     if (data?.type !== "apamind_backup" || !Array.isArray(data.maps)) {
       return { ok: false, error: "Não é um backup do APAMIND (faltam 'type' ou 'maps')" };
     }
@@ -53,9 +61,8 @@ export async function importWorkspaceBackup(file: File): Promise<ImportBackupRes
       if (originalId) mapIdMap.set(originalId, map.id);
     });
 
-    return { ok: true, maps: validated.map(map => remapMapReferences(map, mapIdMap)) };
+    return { ok: true, maps: validated.map((map) => remapMapReferences(map, mapIdMap)) };
   } catch (e) {
     return { ok: false, error: String(e) };
   }
 }
-

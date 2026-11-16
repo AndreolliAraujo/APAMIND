@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { Attachment } from "./model";
 import { mkNode } from "./model";
 import { createMap } from "./templates";
-import { mapReferenceTarget, remapMapReferences, collectBrokenMapLinks, countMapReferences, normalizeReferenceKey } from "./references";
+import {
+  mapReferenceTarget,
+  remapMapReferences,
+  collectBrokenMapLinks,
+  countMapReferences,
+  normalizeReferenceKey,
+} from "./references";
 
 function mapWithAttachment(attachment: Attachment) {
   const map = createMap("m", "Livre");

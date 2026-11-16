@@ -90,20 +90,32 @@ describe("importação e exportação", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    const importedA = result.maps.find(m => m.title === a.title);
-    const importedB = result.maps.find(m => m.title === "Mapa B");
+    const importedA = result.maps.find((m) => m.title === a.title);
+    const importedB = result.maps.find((m) => m.title === "Mapa B");
     expect(importedA).toBeDefined();
     expect(importedB).toBeDefined();
 
-    const referNode = importedB!.nodes.find(n => n.title === "refer");
+    const referNode = importedB!.nodes.find((n) => n.title === "refer");
     expect(referNode).toBeDefined();
     expect(referNode!.attachments![0].path).toBe(`map://${importedA!.id}`);
   });
 
   it.each([
     ["invalid JSON syntax", "map.json", "{"],
-    ["invalid node relationship", "map.json", JSON.stringify({ ...sampleMap(), edges: [{ id: "edge-x", source: "missing", target: "also-missing" }] })],
-    ["invalid attachment shape", "map.json", JSON.stringify({ ...sampleMap(), nodes: [{ ...sampleMap().nodes[0], attachments: [{ type: "url", path: 42 }] }], edges: [] })],
+    [
+      "invalid node relationship",
+      "map.json",
+      JSON.stringify({ ...sampleMap(), edges: [{ id: "edge-x", source: "missing", target: "also-missing" }] }),
+    ],
+    [
+      "invalid attachment shape",
+      "map.json",
+      JSON.stringify({
+        ...sampleMap(),
+        nodes: [{ ...sampleMap().nodes[0], attachments: [{ type: "url", path: 42 }] }],
+        edges: [],
+      }),
+    ],
   ])("rejects %s without returning an importable map", async (_name, filename, contents) => {
     const result = await importFile(file(filename, contents));
     expect(result).toMatchObject({ ok: false });
@@ -118,10 +130,12 @@ describe("importação e exportação", () => {
 
   it("reports malformed XML and well-formed XML without a supported root instead of creating a placeholder map", async () => {
     expect(await importFile(file("broken.mm", "<map><node>"))).toMatchObject({ ok: false });
-    expect(await importFile(file("wrong.mm", "<html><body>not a FreeMind map</body></html>"))).toMatchObject({ ok: false });
+    expect(await importFile(file("wrong.mm", "<html><body>not a FreeMind map</body></html>"))).toMatchObject({
+      ok: false,
+    });
     expect(await importFile(file("broken.opml", "<opml><body>"))).toMatchObject({ ok: false });
-    expect(() => importFreeMind("<not-a-map/>" )).toThrow(/nó raiz/i);
-    expect(() => importMindMeister("<not-opml/>" )).toThrow(/outline/i);
+    expect(() => importFreeMind("<not-a-map/>")).toThrow(/nó raiz/i);
+    expect(() => importMindMeister("<not-opml/>")).toThrow(/outline/i);
   });
 
   it("imports supported Markdown, FreeMind, OPML, and XMind inputs", async () => {
@@ -129,10 +143,14 @@ describe("importação e exportação", () => {
     expect(markdown).toMatchObject({ ok: true, kind: "map" });
     if (markdown.ok && markdown.kind === "map") expect(markdown.map.edges).toHaveLength(1);
 
-    const freeMind = await importFile(file("outline.mm", '<map version="1.0.1"><node TEXT="Root"><node TEXT="Child"/></node></map>'));
+    const freeMind = await importFile(
+      file("outline.mm", '<map version="1.0.1"><node TEXT="Root"><node TEXT="Child"/></node></map>'),
+    );
     expect(freeMind).toMatchObject({ ok: true, kind: "map" });
 
-    const opml = await importFile(file("outline.opml", '<opml><body><outline text="Root"><outline text="Child"/></outline></body></opml>'));
+    const opml = await importFile(
+      file("outline.opml", '<opml><body><outline text="Root"><outline text="Child"/></outline></body></opml>'),
+    );
     expect(opml).toMatchObject({ ok: true, kind: "map" });
 
     const contentJson = JSON.stringify({ rootTopic: { title: "Root", children: { attached: [{ title: "Child" }] } } });

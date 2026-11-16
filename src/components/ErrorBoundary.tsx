@@ -29,11 +29,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
     return (
       <main className="min-h-screen bg-slate-950 p-8 text-slate-100">
-        <section role="alert" className="mx-auto max-w-xl rounded-2xl border border-rose-500/30 bg-slate-900 p-6 shadow-2xl">
+        <section
+          role="alert"
+          className="mx-auto max-w-xl rounded-2xl border border-rose-500/30 bg-slate-900 p-6 shadow-2xl"
+        >
           <h1 className="text-lg font-semibold text-rose-300">O ApaMind encontrou um erro inesperado</h1>
           <p className="mt-3 text-sm leading-6 text-slate-300">
-            O que já foi salvo continua no disco. Recarregue para continuar. Se o erro se repetir, exporte um
-            Backup Total antes de reinstalar o aplicativo.
+            O que já foi salvo continua no disco. Recarregue para continuar. Se o erro se repetir, exporte um Backup
+            Total antes de reinstalar o aplicativo.
           </p>
           <pre className="mt-3 max-h-40 overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-400">
             {String(this.state.error.message || this.state.error)}

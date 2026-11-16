@@ -12,7 +12,10 @@ interface RecoveryDialogProps {
 function summarize(source: SourceSnapshot): string {
   if (source.workspace) {
     const maps = source.workspace.maps;
-    const names = maps.slice(0, 3).map(map => map.title).join(", ");
+    const names = maps
+      .slice(0, 3)
+      .map((map) => map.title)
+      .join(", ");
     const suffix = maps.length > 3 ? "…" : "";
     return `${maps.length} mapa(s): ${names}${suffix}`;
   }
@@ -21,7 +24,13 @@ function summarize(source: SourceSnapshot): string {
 }
 
 function SourceCard({
-  title, summary, error, available, actionLabel, onAction, disabled,
+  title,
+  summary,
+  error,
+  available,
+  actionLabel,
+  onAction,
+  disabled,
 }: {
   title: string;
   summary: string;
@@ -32,16 +41,20 @@ function SourceCard({
   disabled: boolean;
 }) {
   return (
-    <section className={`rounded-xl border p-4 ${available ? "border-white/15 bg-white/[.03]" : "border-white/8 bg-white/[.02] opacity-80"}`}>
+    <section
+      className={`rounded-xl border p-4 ${available ? "border-white/15 bg-white/[.03]" : "border-white/8 bg-white/[.02] opacity-80"}`}
+    >
       <h3 className="text-sm font-semibold">{title}</h3>
       <p className="mt-1 text-xs leading-5 text-slate-300">{summary}</p>
       {error && <p className="mt-2 break-words text-[11px] leading-4 text-rose-300/90">{error}</p>}
       <button
         onClick={onAction}
         disabled={disabled}
-        className={`mt-3 w-full rounded-lg px-3 py-2 text-sm font-medium transition ${available
-          ? "bg-indigo-500 text-white hover:bg-indigo-400 disabled:opacity-50"
-          : "cursor-not-allowed border border-white/10 text-slate-500"}`}
+        className={`mt-3 w-full rounded-lg px-3 py-2 text-sm font-medium transition ${
+          available
+            ? "bg-indigo-500 text-white hover:bg-indigo-400 disabled:opacity-50"
+            : "cursor-not-allowed border border-white/10 text-slate-500"
+        }`}
       >
         {actionLabel}
       </button>
@@ -50,7 +63,12 @@ function SourceCard({
 }
 
 export function RecoveryDialog({
-  conflict, busy, onUseFile, onUseLocal, onExport, onCloseUnchanged,
+  conflict,
+  busy,
+  onUseFile,
+  onUseLocal,
+  onExport,
+  onCloseUnchanged,
 }: RecoveryDialogProps) {
   const canUseFile = Boolean(conflict.file.workspace);
   const canUseLocal = Boolean(conflict.local.workspace);
@@ -63,7 +81,9 @@ export function RecoveryDialog({
         aria-labelledby="recovery-title"
         className="w-full max-w-2xl rounded-2xl border border-amber-400/30 bg-slate-900 p-6 text-slate-100 shadow-2xl"
       >
-        <h2 id="recovery-title" className="text-lg font-semibold text-amber-300">Os dados precisam de uma decisão</h2>
+        <h2 id="recovery-title" className="text-lg font-semibold text-amber-300">
+          Os dados precisam de uma decisão
+        </h2>
         <p className="mt-3 text-sm leading-6 text-slate-300">{conflict.detail}</p>
         <p className="mt-2 text-xs text-slate-400">
           Nada foi alterado. Escolha uma cópia ou exporte as duas antes de decidir.

@@ -13,11 +13,17 @@ export function importMindMeister(opmlText: string, title = "Importado MindMeist
   function walk(el: Element, pid: string | null, x: number, y: number) {
     if (visited.has(el)) return;
     visited.add(el);
-    const text = (el.getAttribute("text") || el.getAttribute("title") || el.getAttribute("TEXT") || el.textContent || "").slice(0, 500);
+    const text = (
+      el.getAttribute("text") ||
+      el.getAttribute("title") ||
+      el.getAttribute("TEXT") ||
+      el.textContent ||
+      ""
+    ).slice(0, 500);
     const n = mkNode(text, "", x, y, nodes.length % 8, "card");
     nodes.push(n);
     if (pid) edges.push(mkEdge(pid, n.id));
-    const kids = Array.from(el.children).filter(c => c.tagName === "outline");
+    const kids = Array.from(el.children).filter((c) => c.tagName === "outline");
     kids.forEach((c, i) => walk(c, n.id, x + 220, y + (i - kids.length / 2) * 90));
   }
   const root = doc.querySelector("outline");
@@ -25,4 +31,3 @@ export function importMindMeister(opmlText: string, title = "Importado MindMeist
   walk(root, null, 500, 300);
   return { id: uid("map"), title, template: "Arvore", ts: new Date().toISOString(), nodes, edges };
 }
-

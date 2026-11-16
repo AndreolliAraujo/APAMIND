@@ -14,21 +14,28 @@ describe("configuração de segurança", () => {
   });
 
   it("não concede permissões recursivas de filesystem ou abertura global", () => {
-    const permissions: Array<string | { identifier: string; allow?: Array<{ path?: string; url?: string }> }> = capability.permissions;
+    const permissions: Array<string | { identifier: string; allow?: Array<{ path?: string; url?: string }> }> =
+      capability.permissions;
     expect(permissions).not.toContain("opener:default");
     expect(permissions).not.toContain("fs:default");
     expect(permissions).not.toContain("fs:allow-applocaldata-read-recursive");
     expect(permissions).not.toContain("fs:allow-applocaldata-write-recursive");
 
-    const pathScopes = permissions.flatMap(permission =>
-      typeof permission === "string" ? [] : (permission.allow ?? []).flatMap(scope => scope.path ? [scope.path] : []),
+    const pathScopes = permissions.flatMap((permission) =>
+      typeof permission === "string"
+        ? []
+        : (permission.allow ?? []).flatMap((scope) => (scope.path ? [scope.path] : [])),
     );
     expect(pathScopes).not.toContain("**");
-    expect(pathScopes.filter(path => path.startsWith("$APPLOCALDATA/")).every(path =>
-      path === "$APPLOCALDATA/workspace.json" || path === "$APPLOCALDATA/workspace.json.tmp-*",
-    )).toBe(true);
+    expect(
+      pathScopes
+        .filter((path) => path.startsWith("$APPLOCALDATA/"))
+        .every((path) => path === "$APPLOCALDATA/workspace.json" || path === "$APPLOCALDATA/workspace.json.tmp-*"),
+    ).toBe(true);
 
-    const urlPermission = permissions.find(permission => typeof permission !== "string" && permission.identifier === "opener:allow-open-url");
+    const urlPermission = permissions.find(
+      (permission) => typeof permission !== "string" && permission.identifier === "opener:allow-open-url",
+    );
     expect(urlPermission).toMatchObject({ allow: [{ url: "http://*" }, { url: "https://*" }] });
     expect(attachmentActions).toContain("tauri.opener?.openUrl");
     expect(attachmentActions).toContain('"plugin:opener|open_url"');

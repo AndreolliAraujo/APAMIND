@@ -34,7 +34,9 @@ describe("resolveBootWorkspace", () => {
       if (!files.has(path)) throw new Error(`missing ${path}`);
       return files.get(path)!;
     });
-    fsMock.writeTextFile.mockReset().mockImplementation(async (path: string, value: string) => { files.set(path, value); });
+    fsMock.writeTextFile.mockReset().mockImplementation(async (path: string, value: string) => {
+      files.set(path, value);
+    });
   });
 
   it("usa o arquivo quando as duas fontes são iguais", async () => {

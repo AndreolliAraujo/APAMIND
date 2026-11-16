@@ -20,7 +20,7 @@ export interface BrokenMapLink {
 
 /** Varre os mapas e devolve as referências `map://` órfãs. */
 export function collectBrokenMapLinks(maps: MMap[]): BrokenMapLink[] {
-  const ids = new Set(maps.map(map => map.id));
+  const ids = new Set(maps.map((map) => map.id));
   const broken: BrokenMapLink[] = [];
   for (const map of maps) {
     for (const node of map.nodes) {
@@ -67,10 +67,10 @@ export function normalizeReferenceKey(path: string): string {
 export function remapMapReferences(map: MMap, mapIdMap: Map<string, string>): MMap {
   return {
     ...map,
-    nodes: map.nodes.map(node => {
+    nodes: map.nodes.map((node) => {
       if (!node.attachments) return node;
       let changed = false;
-      const attachments = node.attachments.map(att => {
+      const attachments = node.attachments.map((att) => {
         const target = mapReferenceTarget(att.path);
         if (target === null) return att;
         const next = mapIdMap.get(target);

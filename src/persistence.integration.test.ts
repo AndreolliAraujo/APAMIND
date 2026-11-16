@@ -33,7 +33,9 @@ describe("integração da persistência desktop", () => {
       if (!files.has(path)) throw new Error(`missing ${path}`);
       return files.get(path)!;
     });
-    fs.writeTextFile.mockReset().mockImplementation(async (path: string, value: string) => { files.set(path, value); });
+    fs.writeTextFile.mockReset().mockImplementation(async (path: string, value: string) => {
+      files.set(path, value);
+    });
     fs.rename.mockReset().mockImplementation(async (from: string, to: string) => {
       const raw = files.get(from);
       if (raw === undefined) throw new Error(`missing ${from}`);
@@ -58,10 +60,13 @@ describe("integração da persistência desktop", () => {
     const writesBeforeClose = fs.writeTextFile.mock.calls.length;
     const closeWindow = vi.fn(async () => undefined);
     const guard = createCloseGuard({
-      cancelDebounce: vi.fn(), getWorkspace: () => recovered!, saveWorkspace: saveWs, closeWindow,
+      cancelDebounce: vi.fn(),
+      getWorkspace: () => recovered!,
+      saveWorkspace: saveWs,
+      closeWindow,
     });
     guard.onCloseRequested({ preventDefault() {} });
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(JSON.parse(files.get("workspace.json")!).maps[0].title).toBe("mapa v5");
     expect(fs.writeTextFile).toHaveBeenCalledTimes(writesBeforeClose + 1);
@@ -70,21 +75,25 @@ describe("integração da persistência desktop", () => {
 
   it("preserves URL attachments after the workspace is saved and reopened", async () => {
     const workspace = withTitle("map with external link");
-    workspace.maps[0].nodes = [{
-      id: "node-link",
-      title: "Reference",
-      note: "",
-      x: 0,
-      y: 0,
-      tone: 0,
-      shape: "card",
-      attachments: [{
-        id: "attachment-link",
-        type: "url",
-        name: "External documentation",
-        path: "https://docs.sub.example.com:8443/guide?q=1#section",
-      }],
-    }];
+    workspace.maps[0].nodes = [
+      {
+        id: "node-link",
+        title: "Reference",
+        note: "",
+        x: 0,
+        y: 0,
+        tone: 0,
+        shape: "card",
+        attachments: [
+          {
+            id: "attachment-link",
+            type: "url",
+            name: "External documentation",
+            path: "https://docs.sub.example.com:8443/guide?q=1#section",
+          },
+        ],
+      },
+    ];
 
     expect((await saveWs(workspace)).success).toBe(true);
     const reopened = await loadWsAsync();
@@ -113,7 +122,10 @@ describe("integração da persistência desktop", () => {
     const changed = withTitle("alteração pendente");
     let failuresLeft = 2;
     fs.writeTextFile.mockImplementation(async (path: string, value: string) => {
-      if (failuresLeft > 0) { failuresLeft -= 1; throw new Error("falha simulada de disco"); }
+      if (failuresLeft > 0) {
+        failuresLeft -= 1;
+        throw new Error("falha simulada de disco");
+      }
       files.set(path, value);
     });
     const firstAttempt = await saveWs(changed);
@@ -124,17 +136,20 @@ describe("integração da persistência desktop", () => {
     const errors: string[] = [];
     const closeWindow = vi.fn(async () => undefined);
     const guard = createCloseGuard({
-      cancelDebounce: vi.fn(), getWorkspace: () => changed, saveWorkspace: saveWs, closeWindow,
-      onError: error => errors.push(error),
+      cancelDebounce: vi.fn(),
+      getWorkspace: () => changed,
+      saveWorkspace: saveWs,
+      closeWindow,
+      onError: (error) => errors.push(error),
     });
     guard.onCloseRequested({ preventDefault() {} });
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(closeWindow).not.toHaveBeenCalled();
     expect(errors.at(-1)).toContain("falha simulada de disco");
     expect(files.get("workspace.json")).toBe(original);
 
     guard.retry();
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(JSON.parse(files.get("workspace.json")!).maps[0].title).toBe("alteração pendente");
     expect(closeWindow).toHaveBeenCalledTimes(1);
   });
@@ -148,22 +163,27 @@ describe("integração da persistência desktop", () => {
     let release!: () => void;
     const changed = withTitle("em gravação");
     fs.writeTextFile.mockImplementation(async (path: string, value: string) => {
-      await new Promise<void>(resolve => { release = resolve; });
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
       files.set(path, value);
     });
     const inFlight = saveWs(changed);
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     const closeWindow = vi.fn(async () => undefined);
     const guard = createCloseGuard({
-      cancelDebounce: vi.fn(), getWorkspace: () => changed, saveWorkspace: saveWs, closeWindow,
+      cancelDebounce: vi.fn(),
+      getWorkspace: () => changed,
+      saveWorkspace: saveWs,
+      closeWindow,
     });
     guard.onCloseRequested({ preventDefault() {} });
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(closeWindow).not.toHaveBeenCalled();
 
     release();
     expect((await inFlight).success).toBe(true);
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(JSON.parse(files.get("workspace.json")!).maps[0].title).toBe("em gravação");
     expect(closeWindow).toHaveBeenCalledTimes(1);
   });

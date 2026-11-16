@@ -18,7 +18,7 @@ export function importFreeMind(xmlText: string, title = "Importado FreeMind"): M
     const n = mkNode(text, "", x, y, nodes.length % 8, "card");
     nodes.push(n);
     if (parentId) edges.push(mkEdge(parentId, n.id));
-    const kids = Array.from(el.children).filter(c => c.tagName === "node");
+    const kids = Array.from(el.children).filter((c) => c.tagName === "node");
     kids.forEach((c, i) => walk(c, n.id, x + 220, y + (i - kids.length / 2) * 90));
   }
 
@@ -27,4 +27,3 @@ export function importFreeMind(xmlText: string, title = "Importado FreeMind"): M
   walk(rootEl, null, 500, 300);
   return { id: uid("map"), title, template: "Arvore", ts: new Date().toISOString(), nodes, edges };
 }
-

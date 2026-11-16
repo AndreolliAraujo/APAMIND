@@ -25,7 +25,7 @@ describe("map operations", () => {
     const map = mapWithTwoNodes();
     const added = mkNode("New", "", 20, 30, 2);
     const withChild = addNodeToMap(map, added, map.nodes[0].id);
-    expect(withChild.nodes.map(node => node.id)).toContain(added.id);
+    expect(withChild.nodes.map((node) => node.id)).toContain(added.id);
     expect(withChild.edges.at(-1)).toMatchObject({ source: map.nodes[0].id, target: added.id });
 
     const edited = updateNodeInMap(withChild, map.nodes[1].id, { title: "Renamed" });
@@ -43,7 +43,7 @@ describe("map operations", () => {
     const map = mapWithTwoNodes();
     map.collapsedIds = [map.nodes[0].id, map.nodes[1].id];
     const deleted = removeNodesFromMap(map, new Set([map.nodes[0].id]));
-    expect(deleted.nodes.map(node => node.id)).toEqual([map.nodes[1].id]);
+    expect(deleted.nodes.map((node) => node.id)).toEqual([map.nodes[1].id]);
     expect(deleted.edges).toEqual([]);
     expect(deleted.collapsedIds).toEqual([map.nodes[1].id]);
   });
@@ -57,11 +57,11 @@ describe("map operations", () => {
 
   it("pastes the copied selection and its internal edges using fresh endpoint IDs", () => {
     const source = mapWithTwoNodes();
-    const clipboard = copyMapSelection(source, new Set(source.nodes.map(node => node.id)))!;
+    const clipboard = copyMapSelection(source, new Set(source.nodes.map((node) => node.id)))!;
     const destination = createMap("Destination", "Livre");
     const result = pasteMapSelection(destination, clipboard, 50, 60);
     const pastedIds = new Set(result.nodeIds);
-    const pastedNodes = result.map.nodes.filter(node => pastedIds.has(node.id));
+    const pastedNodes = result.map.nodes.filter((node) => pastedIds.has(node.id));
 
     expect(result.map.nodes).toHaveLength(destination.nodes.length + 2);
     expect(pastedNodes).toHaveLength(2);
@@ -72,7 +72,7 @@ describe("map operations", () => {
     expect(pastedIds.has(result.map.edges.at(-1)!.source)).toBe(true);
     expect(pastedIds.has(result.map.edges.at(-1)!.target)).toBe(true);
     expect(result.map.edges.at(-1)!.style).toBe("dashed");
-    expect(pastedNodes.map(node => node.id)).not.toContain(source.nodes[0].id);
+    expect(pastedNodes.map((node) => node.id)).not.toContain(source.nodes[0].id);
   });
 
   it("preserves the active map when deleting a different map and creates a fallback for the last map", () => {
@@ -84,7 +84,7 @@ describe("map operations", () => {
     expect(removeMapFromWorkspace(workspace, first.id).active).toBe(active.id);
     const remaining = removeMapFromWorkspace(workspace, active.id);
     expect(remaining.active).toBe(last.id);
-    expect(remaining.maps.map(map => map.id)).toEqual([first.id, last.id]);
+    expect(remaining.maps.map((map) => map.id)).toEqual([first.id, last.id]);
 
     const fallback = createMap("Fallback", "Livre");
     expect(removeMapFromWorkspace({ active: first.id, maps: [first] }, first.id, () => fallback)).toEqual({

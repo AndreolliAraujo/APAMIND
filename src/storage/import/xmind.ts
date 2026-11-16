@@ -16,7 +16,11 @@ export async function importXMind(file: File): Promise<ImportMapResult> {
     }
     if (contentJson) {
       let data: any;
-      try { data = JSON.parse(contentJson); } catch (e) { return { ok: false, error: "content.json inválido: " + String(e) }; }
+      try {
+        data = JSON.parse(contentJson);
+      } catch (e) {
+        return { ok: false, error: "content.json inválido: " + String(e) };
+      }
       const map = parseXMindJSON(data);
       if (!map.nodes.length) return { ok: false, error: "XMind sem tópicos reconhecíveis em content.json." };
       const v = validateMMap(map);
@@ -52,7 +56,14 @@ function parseXMindJSON(data: any): MMap {
     }
   }
   if (rootTopic) walk(rootTopic, null, 500, 300);
-  return { id: uid("map"), title: (rootTopic?.title || "Importado XMind").slice(0, 200), template: "Arvore", ts: new Date().toISOString(), nodes, edges };
+  return {
+    id: uid("map"),
+    title: (rootTopic?.title || "Importado XMind").slice(0, 200),
+    template: "Arvore",
+    ts: new Date().toISOString(),
+    nodes,
+    edges,
+  };
 }
 
 function parseXMindXML(doc: Document): MMap {
@@ -67,7 +78,7 @@ function parseXMindXML(doc: Document): MMap {
     const n = mkNode(text, "", x, y, nodes.length % 8, "card");
     nodes.push(n);
     if (pid) edges.push(mkEdge(pid, n.id));
-    const kids = Array.from(el.children).filter(c => c.tagName === "topic");
+    const kids = Array.from(el.children).filter((c) => c.tagName === "topic");
     kids.forEach((c, i) => walk(c, n.id, x + 220, y + (i - kids.length / 2) * 90));
   }
   const root = doc.querySelector("topic");
@@ -88,9 +99,12 @@ async function readZip(file: File): Promise<Record<string, string>> {
   for (const [name, data] of Object.entries(unzipped)) {
     // Apenas arquivos de conteúdo relevantes (evita ler metadata/binários)
     if (name === "content.xml" || name === "content.json") {
-      try { result[name] = strFromU8(data); } catch { /* ignora falha de decode */ }
+      try {
+        result[name] = strFromU8(data);
+      } catch {
+        /* ignora falha de decode */
+      }
     }
   }
   return result;
 }
-

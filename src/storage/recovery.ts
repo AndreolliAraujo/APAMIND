@@ -1,7 +1,14 @@
 // Recuperação e migração do workspace persistido.
 // Interpreta as cópias de armazenamento sem escolher silenciosamente entre versões.
 
-import { SCHEMA_VERSION, legacyLinksToAttachments, uid, type EdgeStyle, type NodeShape, type Workspace } from "../core/model";
+import {
+  SCHEMA_VERSION,
+  legacyLinksToAttachments,
+  uid,
+  type EdgeStyle,
+  type NodeShape,
+  type Workspace,
+} from "../core/model";
 import { createMap } from "../core/templates";
 import { validateWorkspaceIntegrity } from "../core/validation";
 
@@ -20,7 +27,9 @@ export class WorkspaceRecoveryError extends Error {
 export class WorkspaceFutureVersionError extends WorkspaceRecoveryError {
   readonly version: number;
   constructor(version: number, source: string) {
-    super(`A cópia ${source} foi criada por uma versão mais recente do ApaMind (formato ${version}). Nenhum arquivo foi alterado; atualize o aplicativo para abri-la.`);
+    super(
+      `A cópia ${source} foi criada por uma versão mais recente do ApaMind (formato ${version}). Nenhum arquivo foi alterado; atualize o aplicativo para abri-la.`,
+    );
     this.name = "WorkspaceFutureVersionError";
     this.version = version;
   }
@@ -63,30 +72,40 @@ export function migrateWorkspace(ws: Workspace): Workspace {
       style: (e.style as EdgeStyle) || "solid",
     })),
   }));
-  const activeId = ws.active && maps.some(m => m.id === ws.active) ? ws.active : (maps[0]?.id ?? "");
+  const activeId = ws.active && maps.some((m) => m.id === ws.active) ? ws.active : (maps[0]?.id ?? "");
   return { active: activeId, maps };
 }
 
 export function parseStoredWorkspace(raw: string, source: string): Workspace {
   let parsed: unknown;
-  try { parsed = JSON.parse(raw); }
-  catch { throw new WorkspaceRecoveryError(`A cópia ${source} contém JSON inválido e foi preservada.`); }
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new WorkspaceRecoveryError(`A cópia ${source} contém JSON inválido e foi preservada.`);
+  }
   const candidate = parsed as Workspace;
-  if (!candidate || !Array.isArray(candidate.maps) || candidate.maps.length === 0 ||
-      !candidate.maps.every(m => m && typeof m === "object" && Array.isArray(m.nodes) && Array.isArray(m.edges))) {
+  if (
+    !candidate ||
+    !Array.isArray(candidate.maps) ||
+    candidate.maps.length === 0 ||
+    !candidate.maps.every((m) => m && typeof m === "object" && Array.isArray(m.nodes) && Array.isArray(m.edges))
+  ) {
     throw new WorkspaceRecoveryError(`A cópia ${source} não tem um workspace recuperável e foi preservada.`);
   }
 
   // Versão futura é recusada sem rebaixar o formato nem tocar no conteúdo.
   const futureVersion = candidate.maps
-    .map(m => (m as { schemaVersion?: unknown }).schemaVersion)
-    .find(v => typeof v === "number" && Number.isFinite(v) && v > SCHEMA_VERSION);
+    .map((m) => (m as { schemaVersion?: unknown }).schemaVersion)
+    .find((v) => typeof v === "number" && Number.isFinite(v) && v > SCHEMA_VERSION);
   if (typeof futureVersion === "number") throw new WorkspaceFutureVersionError(futureVersion, source);
 
   const migrated = migrateWorkspace(candidate);
   const issues = validateWorkspaceIntegrity(migrated);
   if (issues.length > 0) {
-    const detail = issues.slice(0, 3).map(issue => `${issue.path}: ${issue.message}`).join(" | ");
+    const detail = issues
+      .slice(0, 3)
+      .map((issue) => `${issue.path}: ${issue.message}`)
+      .join(" | ");
     throw new WorkspaceRecoveryError(`A cópia ${source} tem dados estruturais inválidos e foi preservada. ${detail}`);
   }
   return migrated;
@@ -109,7 +128,9 @@ export function localWorkspace(allowMigration = true): Workspace | null {
   const currentWs = current === null ? null : parseStoredWorkspace(current, SK);
   const legacyWs = legacy === null ? null : parseStoredWorkspace(legacy, LEGACY_SK);
   if (currentWs && legacyWs && !sameWorkspace(currentWs, legacyWs)) {
-    throw new WorkspaceRecoveryError("As cópias apamind.v5 e apamind.v6 divergem. Ambas foram preservadas; escolha manual é necessária.");
+    throw new WorkspaceRecoveryError(
+      "As cópias apamind.v5 e apamind.v6 divergem. Ambas foram preservadas; escolha manual é necessária.",
+    );
   }
   if (currentWs) return currentWs;
   if (!legacyWs) return null;
@@ -123,7 +144,9 @@ export function localWorkspace(allowMigration = true): Workspace | null {
       throw new Error("A releitura da cópia migrada não corresponde à origem.");
     }
   } catch (e) {
-    throw new WorkspaceRecoveryError(`A migração de apamind.v5 para apamind.v6 não foi confirmada; a origem foi preservada. ${String(e)}`);
+    throw new WorkspaceRecoveryError(
+      `A migração de apamind.v5 para apamind.v6 não foi confirmada; a origem foi preservada. ${String(e)}`,
+    );
   }
   return legacyWs;
 }

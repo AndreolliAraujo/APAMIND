@@ -2,10 +2,25 @@
 // Não importa storage, UI nem APIs do host.
 
 export type NodeShape = "card" | "rect" | "circle" | "capsule" | "hex";
-export type TemplateName = "Modelo A" | "Radial" | "Hierarquico" | "Fluxograma" | "Arvore" | "Arvore Direita" | "Arvore Esquerda" | "Organograma" | "Espinha de Peixe" | "Livre" | "Kanban" | "Timeline";
+export type TemplateName =
+  | "Modelo A"
+  | "Radial"
+  | "Hierarquico"
+  | "Fluxograma"
+  | "Arvore"
+  | "Arvore Direita"
+  | "Arvore Esquerda"
+  | "Organograma"
+  | "Espinha de Peixe"
+  | "Livre"
+  | "Kanban"
+  | "Timeline";
 export type AttachType = "url" | "image" | "video" | "audio" | "pdf" | "doc" | "xls" | "map";
 
-export interface CheckItem { text: string; done: boolean; }
+export interface CheckItem {
+  text: string;
+  done: boolean;
+}
 
 export interface Attachment {
   id: string;
@@ -55,7 +70,12 @@ export interface MNode {
 
 export type EdgeStyle = "solid" | "dashed" | "dotted";
 
-export interface MEdge { id: string; source: string; target: string; style?: EdgeStyle; }
+export interface MEdge {
+  id: string;
+  source: string;
+  target: string;
+  style?: EdgeStyle;
+}
 
 export interface MMap {
   id: string;
@@ -68,10 +88,24 @@ export interface MMap {
   collapsedIds?: string[];
 }
 
-export interface Workspace { active: string; maps: MMap[]; }
+export interface Workspace {
+  active: string;
+  maps: MMap[];
+}
 
 export const TEMPLATES: TemplateName[] = [
-  "Modelo A","Radial","Hierarquico","Fluxograma","Arvore","Arvore Direita","Arvore Esquerda","Organograma","Espinha de Peixe","Livre","Kanban","Timeline"
+  "Modelo A",
+  "Radial",
+  "Hierarquico",
+  "Fluxograma",
+  "Arvore",
+  "Arvore Direita",
+  "Arvore Esquerda",
+  "Organograma",
+  "Espinha de Peixe",
+  "Livre",
+  "Kanban",
+  "Timeline",
 ];
 
 export const SCHEMA_VERSION = 1;
@@ -83,7 +117,9 @@ function uuidLike(): string {
     if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
       return crypto.randomUUID();
     }
-  } catch { /* opcional: alguns contextos sfillam em file:// */ }
+  } catch {
+    /* opcional: alguns contextos sfillam em file:// */
+  }
   // Fallback: 22 chars base36 + timestamp — ~80 bits de entropia
   return Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
@@ -93,13 +129,21 @@ export function sanitizeLog(s: string): string {
 }
 
 export const uid = (p = "x") => `${p}_${uuidLike()}`;
-export const clamp = (v:number,lo:number,hi:number)=>Math.min(hi,Math.max(lo,v));
+export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-export function mkNode(title:string,note:string,x:number,y:number,tone:number,shape:NodeShape="card",extra?:Partial<MNode>):MNode{
-  return {id:uid("n"),title,note,x,y,tone,shape,...extra};
+export function mkNode(
+  title: string,
+  note: string,
+  x: number,
+  y: number,
+  tone: number,
+  shape: NodeShape = "card",
+  extra?: Partial<MNode>,
+): MNode {
+  return { id: uid("n"), title, note, x, y, tone, shape, ...extra };
 }
-export function mkEdge(source:string,target:string,style?:EdgeStyle):MEdge{
-  return {id:uid("e"),source,target,style};
+export function mkEdge(source: string, target: string, style?: EdgeStyle): MEdge {
+  return { id: uid("e"), source, target, style };
 }
 
 /**
@@ -108,18 +152,21 @@ export function mkEdge(source:string,target:string,style?:EdgeStyle):MEdge{
  * Sem links legados, devolve o valor original intacto (inclusive `undefined`),
  * para não alterar o formato de nós que nunca usaram o campo.
  */
-export function legacyLinksToAttachments(attachments: Attachment[] | undefined, links: unknown): Attachment[] | undefined {
+export function legacyLinksToAttachments(
+  attachments: Attachment[] | undefined,
+  links: unknown,
+): Attachment[] | undefined {
   const source = Array.isArray(attachments) ? attachments : undefined;
   if (!Array.isArray(links) || links.length === 0) return source;
 
-  let merged = source ? source.map(item => ({ ...item })) : undefined;
+  let merged = source ? source.map((item) => ({ ...item })) : undefined;
   for (const link of links) {
     if (!link || typeof link !== "object") continue;
     const candidate = link as { url?: unknown; label?: unknown };
     if (typeof candidate.url !== "string" || typeof candidate.label !== "string") continue;
     const url = candidate.url.trim();
     if (!/^https?:\/\//i.test(url)) continue;
-    if (merged?.some(item => item.type === "url" && item.path === url)) continue;
+    if (merged?.some((item) => item.type === "url" && item.path === url)) continue;
     if (!merged) merged = [];
     merged.push({ id: uid("att"), type: "url", name: candidate.label.trim() || url, path: url });
   }
@@ -127,29 +174,29 @@ export function legacyLinksToAttachments(attachments: Attachment[] | undefined, 
 }
 
 // ── Hierarchy helpers ─────────────────────────────────────────────
-export function childrenOf(nodeId:string,edges:MEdge[]){
-  return edges.filter(e=>e.source===nodeId).map(e=>e.target);
+export function childrenOf(nodeId: string, edges: MEdge[]) {
+  return edges.filter((e) => e.source === nodeId).map((e) => e.target);
 }
-export function parentOf(nodeId:string,edges:MEdge[]){
-  const e=edges.find(e=>e.target===nodeId);
-  return e?.source??null;
+export function parentOf(nodeId: string, edges: MEdge[]) {
+  const e = edges.find((e) => e.target === nodeId);
+  return e?.source ?? null;
 }
-function descendantsRec(nodeId:string,edges:MEdge[],set:Set<string>){
-  for(const c of childrenOf(nodeId,edges)){
-    if(set.has(c)){
+function descendantsRec(nodeId: string, edges: MEdge[], set: Set<string>) {
+  for (const c of childrenOf(nodeId, edges)) {
+    if (set.has(c)) {
       // ciclo detectado: ignora edge para evitar stack overflow
       console.warn(`APAMIND: ciclo detectado em descendants no no ${sanitizeLog(c)}`);
       continue;
     }
     set.add(c);
-    descendantsRec(c,edges,set);
+    descendantsRec(c, edges, set);
   }
 }
-export function descendants(nodeId:string,edges:MEdge[],set=new Set<string>()){
+export function descendants(nodeId: string, edges: MEdge[], set = new Set<string>()) {
   // Protecao contra ciclos: marca a raiz como visitada para evitar revisita-la
   // caso um ciclo volte para ela. Descendentes nao incluem a propria raiz.
   set.add(nodeId);
-  descendantsRec(nodeId,edges,set);
+  descendantsRec(nodeId, edges, set);
   set.delete(nodeId);
   return set;
 }

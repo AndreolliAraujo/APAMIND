@@ -2,7 +2,15 @@
 
 import { uid, type MMap, type Workspace } from "../core/model";
 import { createMap } from "../core/templates";
-import { LEGACY_SK, SK, WorkspaceRecoveryError, localWorkspace, migrateWorkspace, parseStoredWorkspace, sameWorkspace } from "./recovery";
+import {
+  LEGACY_SK,
+  SK,
+  WorkspaceRecoveryError,
+  localWorkspace,
+  migrateWorkspace,
+  parseStoredWorkspace,
+  sameWorkspace,
+} from "./recovery";
 
 // Evento lancado quando o armazenamento local esta cheio.
 const STORAGE_FULL_EVENT = "apamind:storage-full";
@@ -19,8 +27,12 @@ export type SaveStatus = "saving" | "saved" | "error";
 export type SaveResult = { success: boolean; quotaExceeded: boolean; error?: string };
 const saveStateListeners = new Set<(state: SaveStatus, error?: string) => void>();
 function emitSaveState(state: SaveStatus, error?: string) {
-  saveStateListeners.forEach(listener => {
-    try { listener(state, error); } catch (e) { console.warn("APAMIND: listener de estado de gravação falhou.", e); }
+  saveStateListeners.forEach((listener) => {
+    try {
+      listener(state, error);
+    } catch (e) {
+      console.warn("APAMIND: listener de estado de gravação falhou.", e);
+    }
   });
 }
 
@@ -59,11 +71,16 @@ async function loadFsAsync(): Promise<Workspace | null> {
   try {
     fs = await import("@tauri-apps/plugin-fs");
   } catch (e) {
-    throw new WorkspaceRecoveryError(`Não foi possível acessar workspace.json; nenhuma fonte alternativa foi escolhida. ${String(e)}`);
+    throw new WorkspaceRecoveryError(
+      `Não foi possível acessar workspace.json; nenhuma fonte alternativa foi escolhida. ${String(e)}`,
+    );
   }
   let fileExists: boolean;
-  try { fileExists = await fs.exists(FS_FILENAME, { baseDir: fs.BaseDirectory.AppLocalData }); }
-  catch (e) { throw new WorkspaceRecoveryError(`Não foi possível verificar workspace.json. ${String(e)}`); }
+  try {
+    fileExists = await fs.exists(FS_FILENAME, { baseDir: fs.BaseDirectory.AppLocalData });
+  } catch (e) {
+    throw new WorkspaceRecoveryError(`Não foi possível verificar workspace.json. ${String(e)}`);
+  }
   if (!fileExists) return null;
   try {
     const raw = await fs.readTextFile(FS_FILENAME, { baseDir: fs.BaseDirectory.AppLocalData });
@@ -82,8 +99,11 @@ let _tailSnapshot: string | null = null;
 let _tailSave: Promise<SaveResult> | null = null;
 
 export function markWorkspacePersisted(ws: Workspace): void {
-  try { _lastPersistedSnapshot = JSON.stringify(migrateWorkspace(ws)); }
-  catch { _lastPersistedSnapshot = null; }
+  try {
+    _lastPersistedSnapshot = JSON.stringify(migrateWorkspace(ws));
+  } catch {
+    _lastPersistedSnapshot = null;
+  }
 }
 
 export function loadWs(): Workspace {
@@ -121,7 +141,9 @@ export async function loadWsAsync(): Promise<Workspace | null> {
   }
   if (!fs) return local;
   if (!sameWorkspace(local, fs)) {
-    throw new WorkspaceRecoveryError("As cópias do localStorage e workspace.json divergem. Ambas foram preservadas; escolha manual é necessária.");
+    throw new WorkspaceRecoveryError(
+      "As cópias do localStorage e workspace.json divergem. Ambas foram preservadas; escolha manual é necessária.",
+    );
   }
   markWorkspacePersisted(fs);
   return local;
@@ -148,28 +170,47 @@ export type BootOutcome =
 async function readFileSnapshot(): Promise<SourceSnapshot> {
   if (!isTauri()) return { raw: null, workspace: null, error: null };
   let fs: typeof import("@tauri-apps/plugin-fs");
-  try { fs = await import("@tauri-apps/plugin-fs"); }
-  catch (e) { return { raw: null, workspace: null, error: `Sem acesso ao filesystem: ${String(e)}` }; }
+  try {
+    fs = await import("@tauri-apps/plugin-fs");
+  } catch (e) {
+    return { raw: null, workspace: null, error: `Sem acesso ao filesystem: ${String(e)}` };
+  }
 
   const options = { baseDir: fs.BaseDirectory.AppLocalData };
   let exists: boolean;
-  try { exists = await fs.exists(FS_FILENAME, options); }
-  catch (e) { return { raw: null, workspace: null, error: `Não foi possível verificar ${FS_FILENAME}: ${String(e)}` }; }
+  try {
+    exists = await fs.exists(FS_FILENAME, options);
+  } catch (e) {
+    return { raw: null, workspace: null, error: `Não foi possível verificar ${FS_FILENAME}: ${String(e)}` };
+  }
   if (!exists) return { raw: null, workspace: null, error: null };
 
   let raw: string;
-  try { raw = await fs.readTextFile(FS_FILENAME, options); }
-  catch (e) { return { raw: null, workspace: null, error: `Não foi possível ler ${FS_FILENAME}: ${String(e)}` }; }
+  try {
+    raw = await fs.readTextFile(FS_FILENAME, options);
+  } catch (e) {
+    return { raw: null, workspace: null, error: `Não foi possível ler ${FS_FILENAME}: ${String(e)}` };
+  }
 
-  try { return { raw, workspace: parseStoredWorkspace(raw, FS_FILENAME), error: null }; }
-  catch (e) { return { raw, workspace: null, error: e instanceof Error ? e.message : String(e) }; }
+  try {
+    return { raw, workspace: parseStoredWorkspace(raw, FS_FILENAME), error: null };
+  } catch (e) {
+    return { raw, workspace: null, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 function readLocalSnapshot(): SourceSnapshot {
   let raw: string | null = null;
-  try { raw = localStorage.getItem(SK) ?? localStorage.getItem(LEGACY_SK); } catch { /* storage indisponível */ }
-  try { return { raw, workspace: localWorkspace(true), error: null }; }
-  catch (e) { return { raw, workspace: null, error: e instanceof Error ? e.message : String(e) }; }
+  try {
+    raw = localStorage.getItem(SK) ?? localStorage.getItem(LEGACY_SK);
+  } catch {
+    /* storage indisponível */
+  }
+  try {
+    return { raw, workspace: localWorkspace(true), error: null };
+  } catch (e) {
+    return { raw, workspace: null, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 /**
@@ -193,7 +234,8 @@ export async function resolveBootWorkspace(): Promise<BootOutcome> {
     return {
       kind: "conflict",
       conflict: {
-        detail: "As cópias do arquivo workspace.json e do armazenamento local divergem. Nenhuma será alterada até você decidir.",
+        detail:
+          "As cópias do arquivo workspace.json e do armazenamento local divergem. Nenhuma será alterada até você decidir.",
         file,
         local,
       },
@@ -239,11 +281,16 @@ export function saveWs(ws: Workspace): Promise<SaveResult> {
       emitSaveState("saving");
       // No desktop, localStorage é uma cópia de recuperação preparada antes
       // do commit do arquivo; nunca é usada para sobrescrever o arquivo.
-      try { localStorage.setItem(SK, serialized); }
-      catch (error) {
+      try {
+        localStorage.setItem(SK, serialized);
+      } catch (error) {
         quotaExceeded = error instanceof DOMException && error.name === "QuotaExceededError";
         console.warn("APAMIND: Falha ao atualizar a cópia de recuperação local.", error);
-        try { window.dispatchEvent(new CustomEvent(STORAGE_FULL_EVENT, { detail: String(error) })); } catch { /* ambiente sem DOM */ }
+        try {
+          window.dispatchEvent(new CustomEvent(STORAGE_FULL_EVENT, { detail: String(error) }));
+        } catch {
+          /* ambiente sem DOM */
+        }
         if (!isTauri()) throw error;
       }
 
@@ -258,21 +305,27 @@ export function saveWs(ws: Workspace): Promise<SaveResult> {
     }
   });
   // Recupera a fila após qualquer rejeição inesperada para permitir o próximo save.
-  const tracked = operation.then(result => {
-    _saveQueueDepth -= 1;
-    if (result.success) _lastPersistedSnapshot = serialized;
-    else _lastPersistedSnapshot = null;
-    return result;
-  }, error => {
-    _saveQueueDepth -= 1;
-    _lastPersistedSnapshot = null;
-    const message = String(error instanceof Error ? error.message : error);
-    emitSaveState("error", message);
-    return { success: false, quotaExceeded: false, error: message };
-  });
+  const tracked = operation.then(
+    (result) => {
+      _saveQueueDepth -= 1;
+      if (result.success) _lastPersistedSnapshot = serialized;
+      else _lastPersistedSnapshot = null;
+      return result;
+    },
+    (error) => {
+      _saveQueueDepth -= 1;
+      _lastPersistedSnapshot = null;
+      const message = String(error instanceof Error ? error.message : error);
+      emitSaveState("error", message);
+      return { success: false, quotaExceeded: false, error: message };
+    },
+  );
   _tailSnapshot = serialized;
   _tailSave = tracked;
-  _saveQueue = tracked.then(() => undefined, () => undefined);
+  _saveQueue = tracked.then(
+    () => undefined,
+    () => undefined,
+  );
   return tracked;
 }
 

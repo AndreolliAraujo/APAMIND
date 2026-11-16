@@ -22,15 +22,15 @@ function attachment(type: Attachment["type"], path: string): Attachment {
 }
 
 describe("attachment actions", () => {
-  it.each([
-    "https://sub.example.com:8443/docs?q=one#section",
-    "http://another.example.org/path?x=1#part",
-  ])("opens permitted external link %s with the Tauri opener", async url => {
-    const { runtime } = setup();
-    await openAttachment(attachment("url", url), runtime);
-    expect((runtime.tauri as any).opener.openUrl).toHaveBeenCalledWith(url);
-    expect((runtime.tauri as any).opener.openPath).not.toHaveBeenCalled();
-  });
+  it.each(["https://sub.example.com:8443/docs?q=one#section", "http://another.example.org/path?x=1#part"])(
+    "opens permitted external link %s with the Tauri opener",
+    async (url) => {
+      const { runtime } = setup();
+      await openAttachment(attachment("url", url), runtime);
+      expect((runtime.tauri as any).opener.openUrl).toHaveBeenCalledWith(url);
+      expect((runtime.tauri as any).opener.openPath).not.toHaveBeenCalled();
+    },
+  );
 
   it("keeps local file attachments on the openPath route", async () => {
     const { runtime } = setup();

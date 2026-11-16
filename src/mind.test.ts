@@ -14,7 +14,14 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
 import { uid, clamp, mkNode, mkEdge, childrenOf, parentOf, descendants, type MEdge } from "./core/model";
 import { createMap } from "./core/templates";
 import { loadWs, loadWsAsync, saveWs, onSaveState, markWorkspacePersisted, onStorageFull } from "./storage/workspace";
-import { autoLayoutRadial, autoLayoutGrid, autoLayoutFlow, autoLayoutTimeline, autoLayoutOrgChart, autoLayoutTree } from "./core/layout";
+import {
+  autoLayoutRadial,
+  autoLayoutGrid,
+  autoLayoutFlow,
+  autoLayoutTimeline,
+  autoLayoutOrgChart,
+  autoLayoutTree,
+} from "./core/layout";
 
 // ── uid ────────────────────────────────────────────────────────────
 describe("uid", () => {
@@ -101,9 +108,18 @@ describe("childrenOf / parentOf", () => {
 describe("createMap", () => {
   it("gera mapa valido com todos os templates", () => {
     const templates = [
-      "Modelo A", "Radial", "Hierarquico", "Fluxograma", "Arvore",
-      "Arvore Direita", "Arvore Esquerda", "Organograma",
-      "Espinha de Peixe", "Livre", "Kanban", "Timeline",
+      "Modelo A",
+      "Radial",
+      "Hierarquico",
+      "Fluxograma",
+      "Arvore",
+      "Arvore Direita",
+      "Arvore Esquerda",
+      "Organograma",
+      "Espinha de Peixe",
+      "Livre",
+      "Kanban",
+      "Timeline",
     ] as const;
     for (const t of templates) {
       const m = createMap("Teste " + t, t);
@@ -141,7 +157,9 @@ describe("loadWs / saveWs", () => {
       if (!fileContents.has(path)) throw new Error(`Missing file ${path}`);
       return fileContents.get(path)!;
     });
-    fsMock.writeTextFile.mockImplementation(async (path: string, value: string) => { fileContents.set(path, value); });
+    fsMock.writeTextFile.mockImplementation(async (path: string, value: string) => {
+      fileContents.set(path, value);
+    });
     fsMock.rename.mockImplementation(async (from: string, to: string) => {
       const contents = fileContents.get(from);
       if (contents === undefined) throw new Error(`Missing file ${from}`);
@@ -186,7 +204,9 @@ describe("loadWs / saveWs", () => {
       const result = await saveWs(ws);
       expect(result.success).toBe(true);
       expect(setItem).not.toHaveBeenCalled();
-    } finally { setItem.mockRestore(); }
+    } finally {
+      setItem.mockRestore();
+    }
   });
 
   it("migra v5 para v6 por cópia verificada e mantém v5 intacta", () => {
@@ -221,7 +241,10 @@ describe("loadWs / saveWs", () => {
   });
 
   it("não escolhe automaticamente entre v5 e v6 divergentes", () => {
-    const make = (title: string) => ({ active: "m", maps: [{ id: "m", title, template: "Livre", ts: "x", nodes: [], edges: [] }] });
+    const make = (title: string) => ({
+      active: "m",
+      maps: [{ id: "m", title, template: "Livre", ts: "x", nodes: [], edges: [] }],
+    });
     const v5 = JSON.stringify(make("antigo"));
     const v6 = JSON.stringify(make("novo"));
     localStorage.setItem("apamind.v5", v5);
@@ -233,7 +256,13 @@ describe("loadWs / saveWs", () => {
 
   it("não substitui v6 inválido por cópia v5 válida", () => {
     const invalid = "not json";
-    localStorage.setItem("apamind.v5", JSON.stringify({ active: "m", maps: [{ id: "m", title: "legado", template: "Livre", ts: "x", nodes: [], edges: [] }] }));
+    localStorage.setItem(
+      "apamind.v5",
+      JSON.stringify({
+        active: "m",
+        maps: [{ id: "m", title: "legado", template: "Livre", ts: "x", nodes: [], edges: [] }],
+      }),
+    );
     localStorage.setItem("apamind.v6", invalid);
     expect(() => loadWs()).toThrow(/JSON inválido/);
     expect(localStorage.getItem("apamind.v6")).toBe(invalid);
@@ -241,8 +270,14 @@ describe("loadWs / saveWs", () => {
 
   it("não cria v6 se workspace.json diverge de v5", async () => {
     tauriWindow.__TAURI__ = {};
-    const v5 = JSON.stringify({ active: "m", maps: [{ id: "m", title: "local", template: "Livre", ts: "x", nodes: [], edges: [] }] });
-    const file = JSON.stringify({ active: "f", maps: [{ id: "f", title: "arquivo", template: "Livre", ts: "y", nodes: [], edges: [] }] });
+    const v5 = JSON.stringify({
+      active: "m",
+      maps: [{ id: "m", title: "local", template: "Livre", ts: "x", nodes: [], edges: [] }],
+    });
+    const file = JSON.stringify({
+      active: "f",
+      maps: [{ id: "f", title: "arquivo", template: "Livre", ts: "y", nodes: [], edges: [] }],
+    });
     localStorage.setItem("apamind.v5", v5);
     fsMock.exists.mockResolvedValue(true);
     fsMock.readTextFile.mockResolvedValue(file);
@@ -253,7 +288,10 @@ describe("loadWs / saveWs", () => {
 
   it("não ignora workspace.json inválido nem migra v5 antes de reportar", async () => {
     tauriWindow.__TAURI__ = {};
-    const v5 = JSON.stringify({ active: "m", maps: [{ id: "m", title: "local", template: "Livre", ts: "x", nodes: [], edges: [] }] });
+    const v5 = JSON.stringify({
+      active: "m",
+      maps: [{ id: "m", title: "local", template: "Livre", ts: "x", nodes: [], edges: [] }],
+    });
     localStorage.setItem("apamind.v5", v5);
     fsMock.exists.mockResolvedValue(true);
     fsMock.readTextFile.mockResolvedValue("broken-json");
@@ -264,8 +302,14 @@ describe("loadWs / saveWs", () => {
 
   it("mantém workspace.json como principal e impede cache divergente de sobrescrevê-lo", async () => {
     tauriWindow.__TAURI__ = {};
-    const local = { active: "l", maps: [{ id: "l", title: "cache", template: "Livre", ts: "x", nodes: [], edges: [] }] };
-    const main = { active: "m", maps: [{ id: "m", title: "principal", template: "Livre", ts: "y", nodes: [], edges: [] }] };
+    const local = {
+      active: "l",
+      maps: [{ id: "l", title: "cache", template: "Livre", ts: "x", nodes: [], edges: [] }],
+    };
+    const main = {
+      active: "m",
+      maps: [{ id: "m", title: "principal", template: "Livre", ts: "y", nodes: [], edges: [] }],
+    };
     localStorage.setItem("apamind.v6", JSON.stringify(local));
     fileContents.set("workspace.json", JSON.stringify(main));
     await expect(loadWsAsync()).rejects.toThrow(/divergem/);
@@ -274,30 +318,51 @@ describe("loadWs / saveWs", () => {
 
   it("grava snapshots desktop em sequência e mantém o último workspace íntegro", async () => {
     tauriWindow.__TAURI__ = {};
-    const first = { active: "a", maps: [{ id: "a", title: "primeiro", template: "Livre" as const, ts: "x", nodes: [], edges: [] }] };
-    const second = { active: "b", maps: [{ id: "b", title: "segundo", template: "Livre" as const, ts: "y", nodes: [], edges: [] }] };
+    const first = {
+      active: "a",
+      maps: [{ id: "a", title: "primeiro", template: "Livre" as const, ts: "x", nodes: [], edges: [] }],
+    };
+    const second = {
+      active: "b",
+      maps: [{ id: "b", title: "segundo", template: "Livre" as const, ts: "y", nodes: [], edges: [] }],
+    };
     const writes: string[] = [];
     fsMock.writeTextFile.mockImplementation(async (path: string, value: string) => {
       writes.push(path);
-      await new Promise(resolve => setTimeout(resolve, 2));
+      await new Promise((resolve) => setTimeout(resolve, 2));
       fileContents.set(path, value);
     });
     const results = await Promise.all([saveWs(first), saveWs(second)]);
-    expect(results.every(result => result.success)).toBe(true);
+    expect(results.every((result) => result.success)).toBe(true);
     expect(writes).toHaveLength(2);
     expect(JSON.parse(fileContents.get("workspace.json")!).maps[0].title).toBe("segundo");
   });
 
   it("falha em uma gravação não contamina a fila seguinte", async () => {
     tauriWindow.__TAURI__ = {};
-    fileContents.set("workspace.json", JSON.stringify({ active: "old", maps: [{ id: "old", title: "preservado", template: "Livre", ts: "x", nodes: [], edges: [] }] }));
+    fileContents.set(
+      "workspace.json",
+      JSON.stringify({
+        active: "old",
+        maps: [{ id: "old", title: "preservado", template: "Livre", ts: "x", nodes: [], edges: [] }],
+      }),
+    );
     let shouldFail = true;
     fsMock.writeTextFile.mockImplementation(async (path: string, value: string) => {
-      if (shouldFail) { shouldFail = false; throw new Error("disco indisponível"); }
+      if (shouldFail) {
+        shouldFail = false;
+        throw new Error("disco indisponível");
+      }
       fileContents.set(path, value);
     });
-    const first = await saveWs({ active: "a", maps: [{ id: "a", title: "falha", template: "Livre", ts: "x", nodes: [], edges: [] }] });
-    const second = await saveWs({ active: "b", maps: [{ id: "b", title: "sucesso", template: "Livre", ts: "y", nodes: [], edges: [] }] });
+    const first = await saveWs({
+      active: "a",
+      maps: [{ id: "a", title: "falha", template: "Livre", ts: "x", nodes: [], edges: [] }],
+    });
+    const second = await saveWs({
+      active: "b",
+      maps: [{ id: "b", title: "sucesso", template: "Livre", ts: "y", nodes: [], edges: [] }],
+    });
     expect(first.success).toBe(false);
     expect(second.success).toBe(true);
     expect(JSON.parse(fileContents.get("workspace.json")!).maps[0].title).toBe("sucesso");
@@ -305,10 +370,16 @@ describe("loadWs / saveWs", () => {
 
   it("mantém o arquivo anterior se a gravação do temporário falhar", async () => {
     tauriWindow.__TAURI__ = {};
-    const previous = JSON.stringify({ active: "old", maps: [{ id: "old", title: "intacto", template: "Livre", ts: "x", nodes: [], edges: [] }] });
+    const previous = JSON.stringify({
+      active: "old",
+      maps: [{ id: "old", title: "intacto", template: "Livre", ts: "x", nodes: [], edges: [] }],
+    });
     fileContents.set("workspace.json", previous);
     fsMock.writeTextFile.mockRejectedValueOnce(new Error("interrupção durante escrita"));
-    const result = await saveWs({ active: "new", maps: [{ id: "new", title: "novo", template: "Livre", ts: "y", nodes: [], edges: [] }] });
+    const result = await saveWs({
+      active: "new",
+      maps: [{ id: "new", title: "novo", template: "Livre", ts: "y", nodes: [], edges: [] }],
+    });
     expect(result.success).toBe(false);
     expect(fileContents.get("workspace.json")).toBe(previous);
     expect(fsMock.rename).not.toHaveBeenCalled();
@@ -316,13 +387,19 @@ describe("loadWs / saveWs", () => {
 
   it("mantém o arquivo anterior se a releitura do temporário falhar na validação", async () => {
     tauriWindow.__TAURI__ = {};
-    const previous = JSON.stringify({ active: "old", maps: [{ id: "old", title: "intacto", template: "Livre", ts: "x", nodes: [], edges: [] }] });
+    const previous = JSON.stringify({
+      active: "old",
+      maps: [{ id: "old", title: "intacto", template: "Livre", ts: "x", nodes: [], edges: [] }],
+    });
     fileContents.set("workspace.json", previous);
     fsMock.readTextFile.mockImplementation(async (path: string) => {
       if (path.includes(".tmp-")) return "truncated-json";
       return fileContents.get(path)!;
     });
-    const result = await saveWs({ active: "new", maps: [{ id: "new", title: "novo", template: "Livre", ts: "y", nodes: [], edges: [] }] });
+    const result = await saveWs({
+      active: "new",
+      maps: [{ id: "new", title: "novo", template: "Livre", ts: "y", nodes: [], edges: [] }],
+    });
     expect(result.success).toBe(false);
     expect(fileContents.get("workspace.json")).toBe(previous);
     expect(fsMock.rename).not.toHaveBeenCalled();
@@ -334,11 +411,16 @@ describe("loadWs / saveWs", () => {
     const states: string[] = [];
     const unsubscribe = onSaveState((state, error) => states.push(`${state}:${error ?? ""}`));
     try {
-      const result = await saveWs({ active: "m", maps: [{ id: "m", title: "mapa", template: "Livre", ts: "x", nodes: [], edges: [] }] });
+      const result = await saveWs({
+        active: "m",
+        maps: [{ id: "m", title: "mapa", template: "Livre", ts: "x", nodes: [], edges: [] }],
+      });
       expect(result.success).toBe(false);
-      expect(states.map(s => s.split(":")[0])).toEqual(["saving", "error"]);
+      expect(states.map((s) => s.split(":")[0])).toEqual(["saving", "error"]);
       expect(states[1]).toContain("sem espaço");
-    } finally { unsubscribe(); }
+    } finally {
+      unsubscribe();
+    }
   });
 
   it("migrateWorkspace preenche fields opcionais ausentes", () => {
@@ -373,7 +455,9 @@ describe("onStorageFull", () => {
       throw new DOMException("quota", "QuotaExceededError");
     });
     let called = false;
-    const off = onStorageFull(() => { called = true; });
+    const off = onStorageFull(() => {
+      called = true;
+    });
     try {
       await saveWs(loadWs());
       expect(called).toBe(true);
@@ -417,8 +501,8 @@ describe("autoLayoutRadial", () => {
     expect(out).toHaveLength(4);
     // Distancia radial dos Kids deve ser ~280 de (500, 380)
     for (let i = 1; i < 4; i++) {
-      const dx = (out[i].x) - 500;
-      const dy = (out[i].y) - 380;
+      const dx = out[i].x - 500;
+      const dy = out[i].y - 380;
       expect(Math.sqrt(dx * dx + dy * dy)).toBeCloseTo(280, -2);
     }
   });

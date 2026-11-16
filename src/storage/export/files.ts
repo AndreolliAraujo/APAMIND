@@ -4,13 +4,21 @@
 export function download(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = name; a.click();
+  a.href = url;
+  a.download = name;
+  a.click();
   // Revoke tardio: alguns navegadores (Safari antigo) precisam da URL viva até o download iniciar
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function safeName(name: string) {
-  return name.replace(/[^a-z0-9\u00C0-\u00FF\s-]/gi, "").trim().replace(/\s+/g, "-").slice(0, 48) || "mapa";
+  return (
+    name
+      .replace(/[^a-z0-9\u00C0-\u00FF\s-]/gi, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .slice(0, 48) || "mapa"
+  );
 }
 
 export function esc(s: string) {

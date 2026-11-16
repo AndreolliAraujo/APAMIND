@@ -22,10 +22,16 @@ export function validateMMap(raw: unknown): { ok: true; map: MMap } | { ok: fals
   if (!isNonEmptyString(r.title)) return { ok: false, error: "Campo 'title' ausente ou vazio" };
   if (!Array.isArray(r.nodes)) return { ok: false, error: "Campo 'nodes' deve ser array" };
   if (!Array.isArray(r.edges)) return { ok: false, error: "Campo 'edges' deve ser array" };
-  if (r.template !== undefined && (typeof r.template !== "string" || !TEMPLATES.includes(r.template as MMap["template"]))) {
+  if (
+    r.template !== undefined &&
+    (typeof r.template !== "string" || !TEMPLATES.includes(r.template as MMap["template"]))
+  ) {
     return { ok: false, error: `Template inválido: ${String(r.template)}` };
   }
-  if (r.collapsedIds !== undefined && (!Array.isArray(r.collapsedIds) || r.collapsedIds.some(id => typeof id !== "string"))) {
+  if (
+    r.collapsedIds !== undefined &&
+    (!Array.isArray(r.collapsedIds) || r.collapsedIds.some((id) => typeof id !== "string"))
+  ) {
     return { ok: false, error: "Campo 'collapsedIds' deve ser array de ids" };
   }
 
@@ -37,21 +43,44 @@ export function validateMMap(raw: unknown): { ok: true; map: MMap } | { ok: fals
     if (nodeIds.has(n.id)) return { ok: false, error: `Nó com id duplicado: ${n.id}` };
     nodeIds.add(n.id);
     if (!isFiniteNumber(n.tone) || n.tone < 0) return { ok: false, error: `Nó '${n.id}' com tone inválido` };
-    if (n.shape !== undefined && (typeof n.shape !== "string" || !SHAPES.has(n.shape as NodeShape))) return { ok: false, error: `Nó '${n.id}' com shape inválido` };
-    if (n.note !== undefined && typeof n.note !== "string") return { ok: false, error: `Nó '${n.id}' com note inválido` };
-    if (n.markdown !== undefined && typeof n.markdown !== "string") return { ok: false, error: `Nó '${n.id}' com markdown inválido` };
-    if (n.checklist !== undefined && (!Array.isArray(n.checklist) || n.checklist.some(item =>
-      !item || typeof item !== "object" || typeof item.text !== "string" || typeof item.done !== "boolean",
-    ))) return { ok: false, error: `Nó '${n.id}' com checklist inválido` };
-    if (n.links !== undefined && !Array.isArray(n.links)) return { ok: false, error: `Nó '${n.id}' com links inválidos` };
-    if (n.attachments !== undefined && (!Array.isArray(n.attachments) || n.attachments.some(attachment =>
-      !attachment || typeof attachment !== "object" || !isNonEmptyString(attachment.id)
-      || typeof attachment.type !== "string" || !ATTACHMENT_TYPES.has(attachment.type as AttachType)
-      || typeof attachment.name !== "string" || typeof attachment.path !== "string",
-    ))) return { ok: false, error: `Nó '${n.id}' com anexos inválidos` };
-    if (n.icon !== undefined && typeof n.icon !== "string") return { ok: false, error: `Nó '${n.id}' com icon inválido` };
-    if (n.scale !== undefined && !isFiniteNumber(n.scale)) return { ok: false, error: `Nó '${n.id}' com scale inválido` };
-    if (n.borderColor !== undefined && typeof n.borderColor !== "string") return { ok: false, error: `Nó '${n.id}' com borderColor inválido` };
+    if (n.shape !== undefined && (typeof n.shape !== "string" || !SHAPES.has(n.shape as NodeShape)))
+      return { ok: false, error: `Nó '${n.id}' com shape inválido` };
+    if (n.note !== undefined && typeof n.note !== "string")
+      return { ok: false, error: `Nó '${n.id}' com note inválido` };
+    if (n.markdown !== undefined && typeof n.markdown !== "string")
+      return { ok: false, error: `Nó '${n.id}' com markdown inválido` };
+    if (
+      n.checklist !== undefined &&
+      (!Array.isArray(n.checklist) ||
+        n.checklist.some(
+          (item) =>
+            !item || typeof item !== "object" || typeof item.text !== "string" || typeof item.done !== "boolean",
+        ))
+    )
+      return { ok: false, error: `Nó '${n.id}' com checklist inválido` };
+    if (n.links !== undefined && !Array.isArray(n.links))
+      return { ok: false, error: `Nó '${n.id}' com links inválidos` };
+    if (
+      n.attachments !== undefined &&
+      (!Array.isArray(n.attachments) ||
+        n.attachments.some(
+          (attachment) =>
+            !attachment ||
+            typeof attachment !== "object" ||
+            !isNonEmptyString(attachment.id) ||
+            typeof attachment.type !== "string" ||
+            !ATTACHMENT_TYPES.has(attachment.type as AttachType) ||
+            typeof attachment.name !== "string" ||
+            typeof attachment.path !== "string",
+        ))
+    )
+      return { ok: false, error: `Nó '${n.id}' com anexos inválidos` };
+    if (n.icon !== undefined && typeof n.icon !== "string")
+      return { ok: false, error: `Nó '${n.id}' com icon inválido` };
+    if (n.scale !== undefined && !isFiniteNumber(n.scale))
+      return { ok: false, error: `Nó '${n.id}' com scale inválido` };
+    if (n.borderColor !== undefined && typeof n.borderColor !== "string")
+      return { ok: false, error: `Nó '${n.id}' com borderColor inválido` };
     if (typeof n.title !== "string") return { ok: false, error: `Nó '${n.id}' sem 'title'` };
     if (!isFiniteNumber(n.x) || !isFiniteNumber(n.y)) return { ok: false, error: `Nó '${n.id}' com x/y inválido` };
   }
@@ -63,9 +92,12 @@ export function validateMMap(raw: unknown): { ok: true; map: MMap } | { ok: fals
     if (!isNonEmptyString(e.id)) return { ok: false, error: "Aresta sem 'id'" };
     if (edgeIds.has(e.id)) return { ok: false, error: `Aresta com id duplicado: ${e.id}` };
     edgeIds.add(e.id);
-    if (!isNonEmptyString(e.source) || !nodeIds.has(e.source as string)) return { ok: false, error: `Aresta '${e.id}' com source órfão: ${e.source}` };
-    if (!isNonEmptyString(e.target) || !nodeIds.has(e.target as string)) return { ok: false, error: `Aresta '${e.id}' com target órfão: ${e.target}` };
-    if (e.style !== undefined && (typeof e.style !== "string" || !EDGE_STYLES.has(e.style as EdgeStyle))) return { ok: false, error: `Aresta '${e.id}' com style inválido` };
+    if (!isNonEmptyString(e.source) || !nodeIds.has(e.source as string))
+      return { ok: false, error: `Aresta '${e.id}' com source órfão: ${e.source}` };
+    if (!isNonEmptyString(e.target) || !nodeIds.has(e.target as string))
+      return { ok: false, error: `Aresta '${e.id}' com target órfão: ${e.target}` };
+    if (e.style !== undefined && (typeof e.style !== "string" || !EDGE_STYLES.has(e.style as EdgeStyle)))
+      return { ok: false, error: `Aresta '${e.id}' com style inválido` };
   }
 
   // Reatribui ids únicos para garantir isolamento (previne colisões entre mapas importados)
@@ -76,8 +108,12 @@ export function validateMMap(raw: unknown): { ok: true; map: MMap } | { ok: fals
     title: r.title,
     template: (r.template as MMap["template"]) ?? "Livre",
     ts: isNonEmptyString(r.ts) ? (r.ts as string) : new Date().toISOString(),
-    ...(typeof r.schemaVersion === "number" && Number.isFinite(r.schemaVersion) ? { schemaVersion: r.schemaVersion } : {}),
-    ...(Array.isArray(r.collapsedIds) ? { collapsedIds: r.collapsedIds.flatMap(id => idRemap.has(id) ? [idRemap.get(id)!] : []) } : {}),
+    ...(typeof r.schemaVersion === "number" && Number.isFinite(r.schemaVersion)
+      ? { schemaVersion: r.schemaVersion }
+      : {}),
+    ...(Array.isArray(r.collapsedIds)
+      ? { collapsedIds: r.collapsedIds.flatMap((id) => (idRemap.has(id) ? [idRemap.get(id)!] : [])) }
+      : {}),
     nodes: (r.nodes as any[]).map((n) => ({
       ...n,
       id: idRemap.get(n.id),
@@ -87,7 +123,12 @@ export function validateMMap(raw: unknown): { ok: true; map: MMap } | { ok: fals
       attachments: legacyLinksToAttachments(n.attachments, n.links),
       links: undefined,
     })),
-    edges: (r.edges as any[]).map((e) => ({ ...e, id: uid("e"), source: idRemap.get(e.source)!, target: idRemap.get(e.target)! })),
+    edges: (r.edges as any[]).map((e) => ({
+      ...e,
+      id: uid("e"),
+      source: idRemap.get(e.source)!,
+      target: idRemap.get(e.target)!,
+    })),
   };
   return { ok: true, map };
 }
@@ -114,19 +155,31 @@ export function validateWorkspaceIntegrity(ws: Workspace): WorkspaceIssue[] {
   const mapIds = new Set<string>();
   ws.maps.forEach((map, mi) => {
     const at = `maps[${mi}]`;
-    if (!map || typeof map !== "object") { add("bad-map", "Mapa inválido.", at); return; }
+    if (!map || typeof map !== "object") {
+      add("bad-map", "Mapa inválido.", at);
+      return;
+    }
     if (typeof map.id !== "string" || map.id === "") add("bad-map-id", "Mapa sem id.", `${at}.id`);
     else if (mapIds.has(map.id)) add("duplicate-map-id", `Id de mapa duplicado: ${map.id}.`, `${at}.id`);
     else mapIds.add(map.id);
 
     if (typeof map.title !== "string") add("bad-map-title", "Mapa sem título.", `${at}.title`);
-    if (!Array.isArray(map.nodes)) { add("bad-nodes", "Campo nodes deve ser lista.", `${at}.nodes`); return; }
-    if (!Array.isArray(map.edges)) { add("bad-edges", "Campo edges deve ser lista.", `${at}.edges`); return; }
+    if (!Array.isArray(map.nodes)) {
+      add("bad-nodes", "Campo nodes deve ser lista.", `${at}.nodes`);
+      return;
+    }
+    if (!Array.isArray(map.edges)) {
+      add("bad-edges", "Campo edges deve ser lista.", `${at}.edges`);
+      return;
+    }
 
     const nodeIds = new Set<string>();
     map.nodes.forEach((node, ni) => {
       const nat = `${at}.nodes[${ni}]`;
-      if (!node || typeof node !== "object") { add("bad-node", "Nó inválido.", nat); return; }
+      if (!node || typeof node !== "object") {
+        add("bad-node", "Nó inválido.", nat);
+        return;
+      }
       if (typeof node.id !== "string" || node.id === "") add("bad-node-id", "Nó sem id.", `${nat}.id`);
       else if (nodeIds.has(node.id)) add("duplicate-node-id", `Id de nó duplicado: ${node.id}.`, `${nat}.id`);
       else nodeIds.add(node.id);
@@ -134,7 +187,11 @@ export function validateWorkspaceIntegrity(ws: Workspace): WorkspaceIssue[] {
       if (typeof node.title !== "string") add("bad-node-title", "Nó sem título.", `${nat}.title`);
       if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) add("bad-node-position", "Nó sem posição válida.", nat);
       if (typeof node.tone !== "number" || !Number.isFinite(node.tone)) add("bad-node-tone", "Nó sem tom válido.", nat);
-      if (node.attachments !== undefined && (!Array.isArray(node.attachments) || node.attachments.some(a => !a || typeof a.id !== "string" || typeof a.path !== "string"))) {
+      if (
+        node.attachments !== undefined &&
+        (!Array.isArray(node.attachments) ||
+          node.attachments.some((a) => !a || typeof a.id !== "string" || typeof a.path !== "string"))
+      ) {
         add("bad-attachments", "Anexos inválidos.", `${nat}.attachments`);
       }
     });
@@ -142,13 +199,18 @@ export function validateWorkspaceIntegrity(ws: Workspace): WorkspaceIssue[] {
     const edgeIds = new Set<string>();
     map.edges.forEach((edge, ei) => {
       const eat = `${at}.edges[${ei}]`;
-      if (!edge || typeof edge !== "object") { add("bad-edge", "Aresta inválida.", eat); return; }
+      if (!edge || typeof edge !== "object") {
+        add("bad-edge", "Aresta inválida.", eat);
+        return;
+      }
       if (typeof edge.id !== "string" || edge.id === "") add("bad-edge-id", "Aresta sem id.", `${eat}.id`);
       else if (edgeIds.has(edge.id)) add("duplicate-edge-id", `Id de aresta duplicado: ${edge.id}.`, `${eat}.id`);
       else edgeIds.add(edge.id);
 
-      if (typeof edge.source !== "string" || !nodeIds.has(edge.source)) add("orphan-edge-source", `Aresta com origem inexistente: ${String(edge.source)}.`, `${eat}.source`);
-      if (typeof edge.target !== "string" || !nodeIds.has(edge.target)) add("orphan-edge-target", `Aresta com destino inexistente: ${String(edge.target)}.`, `${eat}.target`);
+      if (typeof edge.source !== "string" || !nodeIds.has(edge.source))
+        add("orphan-edge-source", `Aresta com origem inexistente: ${String(edge.source)}.`, `${eat}.source`);
+      if (typeof edge.target !== "string" || !nodeIds.has(edge.target))
+        add("orphan-edge-target", `Aresta com destino inexistente: ${String(edge.target)}.`, `${eat}.target`);
     });
   });
 

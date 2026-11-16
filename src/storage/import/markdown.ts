@@ -30,4 +30,3 @@ export function importMarkdown(text: string, title = "Importado Markdown"): MMap
   }
   return { id: uid("map"), title, template: "Livre", ts: new Date().toISOString(), nodes, edges };
 }
-

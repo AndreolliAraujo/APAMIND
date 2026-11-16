@@ -36,7 +36,6 @@ export async function importFile(file: File): Promise<ImportFileResult> {
   }
 }
 
-
 export { importJSON, importWorkspaceBackup } from "./json";
 export { importMarkdown } from "./markdown";
 export { importFreeMind } from "./freemind";

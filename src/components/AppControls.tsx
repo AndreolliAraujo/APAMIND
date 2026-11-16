@@ -54,41 +54,96 @@ export function CloseFailureDialog({
   );
 }
 
-export function ColorInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+export function ColorInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
   return (
     <label className="block">
       <span className="text-[10px] uppercase tracking-[.14em] text-slate-500">{label}</span>
-      <input type="color" value={value} onChange={event => onChange(event.target.value)} className="mt-1 h-10 w-full cursor-pointer rounded-lg border-0 bg-transparent p-0" />
+      <input
+        type="color"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 h-10 w-full cursor-pointer rounded-lg border-0 bg-transparent p-0"
+      />
     </label>
   );
 }
 
 const EMOJI_CATEGORIES = [
-  { name: "Ideias", emojis: ["💡", "🎯", "🚀", "⭐", "🔥", "✨", "🎉", "🏆", "🎨", "🔧", "⚙️", "🔬", "📐", "🧩", "🧠", "💭"] },
-  { name: "Ações", emojis: ["✅", "☑️", "✔️", "❌", "➕", "➖", "✏️", "📝", "📌", "📍", "🔍", "🔎", "🔄", "⏩", "⏪", "⏳"] },
-  { name: "Pessoas", emojis: ["👤", "👥", "🧑", "👨", "👩", "🧑‍💼", "👨‍💼", "👩‍💼", "🧑‍🔧", "👨‍🔧", "👩‍🔧", "🧑‍🎓", "👨‍🎓", "👩‍🎓", "🧑‍🏫", "👨‍⚕️"] },
-  { name: "Objetos", emojis: ["📁", "📂", "📄", "📑", "📊", "📈", "📉", "📅", "📆", "🗓️", "📋", "📌", "📎", "🔗", "📦", "🗂️"] },
-  { name: "Natureza", emojis: ["🌱", "🌿", "🍀", "🌳", "🌲", "🌴", "🌵", "🌸", "🌺", "🌻", "🌞", "🌙", "⭐", "🌍", "🌎", "🌏"] },
-  { name: "Símbolos", emojis: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖"] },
-  { name: "Alertas", emojis: ["⚠️", "🚫", "⛔", "🛑", "❗", "❕", "❓", "❔", "‼️", "⁉️", "🔔", "🔕", "📣", "📢", "💬", "🗯️"] },
-  { name: "Tecnologia", emojis: ["💻", "🖥️", "💾", "💿", "📀", "🖱️", "⌨️", "🖨️", "🔌", "🔋", "📡", "🔭", "📷", "📹", "🎥", "📺"] },
-  { name: "Financeiro", emojis: ["💰", "💵", "💶", "💷", "💴", "💸", "💳", "🪙", "📈", "📉", "💹", "🏦", "🧾", "💲", "🤑", "🪙"] },
-  { name: "Tempo", emojis: ["⏰", "🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙", "🕚", "🕛", "📅", "📆", "🗓️"] },
+  {
+    name: "Ideias",
+    emojis: ["💡", "🎯", "🚀", "⭐", "🔥", "✨", "🎉", "🏆", "🎨", "🔧", "⚙️", "🔬", "📐", "🧩", "🧠", "💭"],
+  },
+  {
+    name: "Ações",
+    emojis: ["✅", "☑️", "✔️", "❌", "➕", "➖", "✏️", "📝", "📌", "📍", "🔍", "🔎", "🔄", "⏩", "⏪", "⏳"],
+  },
+  {
+    name: "Pessoas",
+    emojis: ["👤", "👥", "🧑", "👨", "👩", "🧑‍💼", "👨‍💼", "👩‍💼", "🧑‍🔧", "👨‍🔧", "👩‍🔧", "🧑‍🎓", "👨‍🎓", "👩‍🎓", "🧑‍🏫", "👨‍⚕️"],
+  },
+  {
+    name: "Objetos",
+    emojis: ["📁", "📂", "📄", "📑", "📊", "📈", "📉", "📅", "📆", "🗓️", "📋", "📌", "📎", "🔗", "📦", "🗂️"],
+  },
+  {
+    name: "Natureza",
+    emojis: ["🌱", "🌿", "🍀", "🌳", "🌲", "🌴", "🌵", "🌸", "🌺", "🌻", "🌞", "🌙", "⭐", "🌍", "🌎", "🌏"],
+  },
+  {
+    name: "Símbolos",
+    emojis: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖"],
+  },
+  {
+    name: "Alertas",
+    emojis: ["⚠️", "🚫", "⛔", "🛑", "❗", "❕", "❓", "❔", "‼️", "⁉️", "🔔", "🔕", "📣", "📢", "💬", "🗯️"],
+  },
+  {
+    name: "Tecnologia",
+    emojis: ["💻", "🖥️", "💾", "💿", "📀", "🖱️", "⌨️", "🖨️", "🔌", "🔋", "📡", "🔭", "📷", "📹", "🎥", "📺"],
+  },
+  {
+    name: "Financeiro",
+    emojis: ["💰", "💵", "💶", "💷", "💴", "💸", "💳", "🪙", "📈", "📉", "💹", "🏦", "🧾", "💲", "🤑", "🪙"],
+  },
+  {
+    name: "Tempo",
+    emojis: ["⏰", "🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙", "🕚", "🕛", "📅", "📆", "🗓️"],
+  },
 ];
 
-export function EmojiPicker({ value, onPick, isDark }: { value: string; onPick: (icon: string) => void; isDark: boolean }) {
+export function EmojiPicker({
+  value,
+  onPick,
+  isDark,
+}: {
+  value: string;
+  onPick: (icon: string) => void;
+  isDark: boolean;
+}) {
   const [openCat, setOpenCat] = useState<string | null>("Ideias");
   return (
-    <div className={`mt-2 rounded-xl border p-2 ${isDark ? "border-white/8 bg-white/[.03]" : "border-black/5 bg-slate-50"}`}>
+    <div
+      className={`mt-2 rounded-xl border p-2 ${isDark ? "border-white/8 bg-white/[.03]" : "border-black/5 bg-slate-50"}`}
+    >
       <div className="flex gap-1 overflow-x-auto pb-1 custom-scroll">
-        {EMOJI_CATEGORIES.map(category => (
+        {EMOJI_CATEGORIES.map((category) => (
           <button
             key={category.name}
             onClick={() => setOpenCat(openCat === category.name ? null : category.name)}
             className={`shrink-0 rounded-lg px-2 py-1 text-[11px] font-medium transition ${
               openCat === category.name
                 ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                : isDark ? "text-slate-400 hover:bg-white/5 border border-transparent" : "text-slate-600 hover:bg-slate-100 border border-transparent"
+                : isDark
+                  ? "text-slate-400 hover:bg-white/5 border border-transparent"
+                  : "text-slate-600 hover:bg-slate-100 border border-transparent"
             }`}
           >
             {category.emojis[0]} {category.name}
@@ -97,7 +152,7 @@ export function EmojiPicker({ value, onPick, isDark }: { value: string; onPick: 
       </div>
       {openCat && (
         <div className="mt-2 grid grid-cols-8 gap-1">
-          {EMOJI_CATEGORIES.find(category => category.name === openCat)?.emojis.map(emoji => (
+          {EMOJI_CATEGORIES.find((category) => category.name === openCat)?.emojis.map((emoji) => (
             <button
               key={emoji}
               onClick={() => onPick(emoji)}
@@ -116,6 +171,12 @@ export function EmojiPicker({ value, onPick, isDark }: { value: string; onPick: 
 
 export function CtxBtn({ label, onClick, danger = false }: { label: string; onClick: () => void; danger?: boolean }) {
   return (
-    <button role="menuitem" onClick={onClick} className={`w-full text-left rounded-md px-2.5 py-1 text-[11px] transition ${danger ? "text-rose-400 hover:bg-rose-500/10" : "hover:bg-white/8"}`}>{label}</button>
+    <button
+      role="menuitem"
+      onClick={onClick}
+      className={`w-full text-left rounded-md px-2.5 py-1 text-[11px] transition ${danger ? "text-rose-400 hover:bg-rose-500/10" : "hover:bg-white/8"}`}
+    >
+      {label}
+    </button>
   );
 }

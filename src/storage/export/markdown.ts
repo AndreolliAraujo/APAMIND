@@ -8,19 +8,25 @@ export function exportMarkdown(map: MMap) {
   function walk(nodeId: string, depth = 0) {
     if (visited.has(nodeId)) return;
     visited.add(nodeId);
-    const n = map.nodes.find(x => x.id === nodeId);
+    const n = map.nodes.find((x) => x.id === nodeId);
     if (!n) return;
     const indent = "  ".repeat(depth);
     md += `${indent}- **${escMarkdownInline(n.title)}**${n.note ? `: ${escMarkdownInline(n.note)}` : ""}\n`;
-    if (n.markdown) md += n.markdown.split("\n").map(l => `${indent}  > ${l}`).join("\n") + "\n";
+    if (n.markdown)
+      md +=
+        n.markdown
+          .split("\n")
+          .map((l) => `${indent}  > ${l}`)
+          .join("\n") + "\n";
     if (n.checklist?.length) {
-      n.checklist.forEach(c => { md += `${indent}  - [${c.done ? "x" : " "}] ${escMarkdownInline(c.text)}\n`; });
+      n.checklist.forEach((c) => {
+        md += `${indent}  - [${c.done ? "x" : " "}] ${escMarkdownInline(c.text)}\n`;
+      });
     }
-    map.edges.filter(e => e.source === nodeId).forEach(e => walk(e.target, depth + 1));
+    map.edges.filter((e) => e.source === nodeId).forEach((e) => walk(e.target, depth + 1));
   }
   const root = map.nodes[0];
   if (root) walk(root.id);
   const blob = new Blob([md], { type: "text/markdown" });
   download(blob, `${safeName(map.title)}.md`);
 }
-

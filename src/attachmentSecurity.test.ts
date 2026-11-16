@@ -7,7 +7,7 @@ describe("validateAttachmentTarget", () => {
     "http://localhost:5173/preview",
     "https://docs.sub.example.com:8443/path/to/page?mode=full&lang=pt#section-2",
     "https://example.com/download.exe?source=docs#file",
-  ])("allows any valid HTTP(S) URL for URL attachments: %s", value => {
+  ])("allows any valid HTTP(S) URL for URL attachments: %s", (value) => {
     expect(validateAttachmentTarget(value, true)).toMatchObject({ kind: "url" });
   });
 
@@ -29,9 +29,9 @@ describe("validateAttachmentTarget", () => {
     expect(normalizeSchemeLessWebAddress("C:\\Users\\Ana\\document.pdf")).toBeNull();
   });
 
-  it.each(["javascript:alert(1)", "data:text/html,hi", "mailto:user@example.com", "ftp://example.com/file"]) (
+  it.each(["javascript:alert(1)", "data:text/html,hi", "mailto:user@example.com", "ftp://example.com/file"])(
     "rejects unauthorized URL schemes: %s",
-    value => expect(validateAttachmentTarget(value, true).kind).toBe("invalid"),
+    (value) => expect(validateAttachmentTarget(value, true).kind).toBe("invalid"),
   );
 
   it.each([
@@ -40,7 +40,7 @@ describe("validateAttachmentTarget", () => {
     "https://example.com:invalid/path",
     "https://user:password@example.com/private",
     "http://user@example.com/private",
-  ])("rejects malformed or credential-bearing URLs: %s", value => {
+  ])("rejects malformed or credential-bearing URLs: %s", (value) => {
     expect(validateAttachmentTarget(value, true).kind).toBe("invalid");
   });
 
@@ -48,14 +48,17 @@ describe("validateAttachmentTarget", () => {
     expect(validateAttachmentTarget("https://example.com/file.pdf", false).kind).toBe("invalid");
   });
 
-  it.each(["C:\\Users\\Ana\\..\\Windows\\file.pdf", "/home/ana/../etc/passwd", "file:///C:/Users/Ana/../Windows/file.pdf"]) (
-    "rejects parent directory traversal: %s",
-    value => expect(validateAttachmentTarget(value, false).kind).toBe("invalid"),
+  it.each([
+    "C:\\Users\\Ana\\..\\Windows\\file.pdf",
+    "/home/ana/../etc/passwd",
+    "file:///C:/Users/Ana/../Windows/file.pdf",
+  ])("rejects parent directory traversal: %s", (value) =>
+    expect(validateAttachmentTarget(value, false).kind).toBe("invalid"),
   );
 
-  it.each(["C:\\Users\\Ana\\shortcut.lnk", "file:///home/ana/script.sh", "file:///home/ana/payload%2Eexe"]) (
+  it.each(["C:\\Users\\Ana\\shortcut.lnk", "file:///home/ana/script.sh", "file:///home/ana/payload%2Eexe"])(
     "rejects executable and shortcut targets: %s",
-    value => expect(validateAttachmentTarget(value, /^https?:/i.test(value)).kind).toBe("invalid"),
+    (value) => expect(validateAttachmentTarget(value, /^https?:/i.test(value)).kind).toBe("invalid"),
   );
 
   it.each([
@@ -67,8 +70,12 @@ describe("validateAttachmentTarget", () => {
     expect(validateAttachmentTarget(input, false)).toEqual({ kind: "path", value: expected });
   });
 
-  it.each(["relative/file.pdf", "\\\\server\\share\\file.pdf", "//server/share/file.pdf", "file://server/share/file.pdf"]) (
-    "rejects relative and network paths: %s",
-    value => expect(validateAttachmentTarget(value, false).kind).toBe("invalid"),
+  it.each([
+    "relative/file.pdf",
+    "\\\\server\\share\\file.pdf",
+    "//server/share/file.pdf",
+    "file://server/share/file.pdf",
+  ])("rejects relative and network paths: %s", (value) =>
+    expect(validateAttachmentTarget(value, false).kind).toBe("invalid"),
   );
 });

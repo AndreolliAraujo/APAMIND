@@ -26,7 +26,7 @@ export async function openAttachment(att: Attachment, runtime: AttachmentOpenRun
 
   if (att.type === "map" && raw.startsWith("map://")) {
     const targetId = raw.slice(6);
-    const target = runtime.workspace.maps.find(map => map.id === targetId);
+    const target = runtime.workspace.maps.find((map) => map.id === targetId);
     if (target) runtime.switchMap(targetId);
     else runtime.alert("Mapa vinculado não encontrado. Ele pode ter sido excluído.");
     return;
@@ -44,7 +44,10 @@ export async function openAttachment(att: Attachment, runtime: AttachmentOpenRun
   const tauri = runtime.tauri as TauriBridge | undefined;
   if (!tauri) {
     if (target.kind === "url") runtime.openBrowserUrl(target.value);
-    else if (att.type === "url") runtime.alert("Abertura bloqueada: em preview web, apenas URLs http(s) são permitidas.\nPara abrir arquivos locais, use a versão desktop do APAMIND.");
+    else if (att.type === "url")
+      runtime.alert(
+        "Abertura bloqueada: em preview web, apenas URLs http(s) são permitidas.\nPara abrir arquivos locais, use a versão desktop do APAMIND.",
+      );
     else runtime.alert("Abertura de arquivos locais requer a versão desktop do APAMIND.");
     return;
   }
@@ -59,7 +62,9 @@ export async function openAttachment(att: Attachment, runtime: AttachmentOpenRun
     }
 
     if (att.type === "url" && !isWebUrl && !isLocalPath) {
-      runtime.alert(`Abertura bloqueada: scheme inválido. Apenas http(s) ou caminho local (C:\\ ou file://) é permitido.\nRecebido: ${raw.slice(0, 60)}`);
+      runtime.alert(
+        `Abertura bloqueada: scheme inválido. Apenas http(s) ou caminho local (C:\\ ou file://) é permitido.\nRecebido: ${raw.slice(0, 60)}`,
+      );
       return;
     }
 
@@ -75,7 +80,12 @@ export async function openAttachment(att: Attachment, runtime: AttachmentOpenRun
     };
     const allowed = allowedByType[att.type];
     if (allowed.length && extension && !allowed.includes(extension)) {
-      if (!runtime.confirm(`Atenção: arquivo "${extension}" não corresponde ao tipo declarado "${att.type}". Tentar abrir mesmo assim?`)) return;
+      if (
+        !runtime.confirm(
+          `Atenção: arquivo "${extension}" não corresponde ao tipo declarado "${att.type}". Tentar abrir mesmo assim?`,
+        )
+      )
+        return;
     }
 
     if (tauri.opener?.openPath) await tauri.opener.openPath(target.value);

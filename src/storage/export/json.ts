@@ -27,4 +27,3 @@ export function serializeWorkspaceBackup(maps: MMap[]): string {
   };
   return JSON.stringify(data, null, 2);
 }
-
