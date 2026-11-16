@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.4 — 2026-11-16
+
+### Correções
+
+- **A roda do mouse não fazia zoom.** O listener de `wheel` era registrado uma única vez, no primeiro
+  render do aplicativo — que é a tela "Preparando proteção de fechamento…". Quando o canvas montava,
+  depois do boot, a referência já era `null` e o listener nunca era ligado. Agora o elemento do canvas
+  é guardado em estado (callback ref) e o listener é adicionado e removido conforme ele aparece e
+  desaparece. Os botões de zoom e a tecla `F` nunca foram afetados.
+- Teste de regressão cobre a roda para baixo e para cima usando o indicador de zoom.
+
 ## 0.7.3 — 2026-11-16
 
 Correção do empacotamento Windows. Sem mudança de código, de formato persistido ou de comportamento

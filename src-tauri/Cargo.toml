@@ -1,6 +1,6 @@
 [package]
 name = "apamind"
-version = "0.7.3"
+version = "0.7.4"
 description = "APAMIND - Editor de Mapas Mentais Premium"
 authors = ["APAMIND"]
 edition = "2021"
