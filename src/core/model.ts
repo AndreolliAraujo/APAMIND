@@ -105,20 +105,25 @@ export function mkEdge(source:string,target:string,style?:EdgeStyle):MEdge{
 /**
  * Migra o campo legado `links` (descontinuado) para anexos do tipo `url`.
  * Entradas inválidas são ignoradas e um destino já anexado não é duplicado.
+ * Sem links legados, devolve o valor original intacto (inclusive `undefined`),
+ * para não alterar o formato de nós que nunca usaram o campo.
  */
-export function legacyLinksToAttachments(attachments: Attachment[] | undefined, links: unknown): Attachment[] {
-  const out: Attachment[] = Array.isArray(attachments) ? attachments.map(item => ({ ...item })) : [];
-  if (!Array.isArray(links)) return out;
+export function legacyLinksToAttachments(attachments: Attachment[] | undefined, links: unknown): Attachment[] | undefined {
+  const source = Array.isArray(attachments) ? attachments : undefined;
+  if (!Array.isArray(links) || links.length === 0) return source;
+
+  let merged = source ? source.map(item => ({ ...item })) : undefined;
   for (const link of links) {
     if (!link || typeof link !== "object") continue;
     const candidate = link as { url?: unknown; label?: unknown };
     if (typeof candidate.url !== "string" || typeof candidate.label !== "string") continue;
     const url = candidate.url.trim();
     if (!/^https?:\/\//i.test(url)) continue;
-    if (out.some(item => item.type === "url" && item.path === url)) continue;
-    out.push({ id: uid("att"), type: "url", name: candidate.label.trim() || url, path: url });
+    if (merged?.some(item => item.type === "url" && item.path === url)) continue;
+    if (!merged) merged = [];
+    merged.push({ id: uid("att"), type: "url", name: candidate.label.trim() || url, path: url });
   }
-  return out;
+  return merged;
 }
 
 // ── Hierarchy helpers ─────────────────────────────────────────────
