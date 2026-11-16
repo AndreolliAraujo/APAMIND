@@ -334,7 +334,7 @@ export default function App() {
       if (outcome.kind === "ready") { setWs(outcome.workspace); setBootIssue(null); }
       if (!initialLoad.error) setBootReady(true);
     }).catch(e => setBootIssue(String(e)));
-  }, []);
+  }, [initialLoad.error]);
 
   async function applyFileCopy() {
     if (!conflict?.file.workspace) return;
@@ -385,6 +385,8 @@ export default function App() {
   }), []);
 
   // ── Fit to view on map change ────────────────────────
+  // fitView lê refs e estado derivado; incluí-lo nas deps reexecutaria a cada render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { requestAnimationFrame(fitView); }, [map.id]);
 
   // ── Theme helpers ────────────────────────────────────
@@ -866,8 +868,12 @@ export default function App() {
   }, []);
 
   // ── Keyboard shortcuts ───────────────────────────────
+  // O listener é registrado uma única vez, mas sempre chama o handler do render
+  // atual (via ref). Sem isso, as closures ficavam presas ao primeiro render e
+  // Ctrl+Z/C/V/D e Esc operavam sobre estado vazio/antigo.
+  const keyHandlerRef = useRef<(event: KeyboardEvent) => void>(() => {});
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
+    keyHandlerRef.current = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.key === "Delete" || e.key === "Backspace") {
@@ -877,7 +883,7 @@ export default function App() {
           const m = w.maps.find(x => x.id === w.active);
           if (!m) return;
           recordHistory(m);
-          setWs(w => ({ ...w, maps: w.maps.map(mp => mp.id === w.active ? { ...mp, nodes: mp.nodes.filter(n => !s.has(n.id)), edges: mp.edges.filter(ed => !s.has(ed.source) && !s.has(ed.target)) } : mp) }));
+          setWs(w => ({ ...w, maps: w.maps.map(mp => mp.id === w.active ? { ...removeNodesFromMap(mp, s), ts: new Date().toISOString() } : mp) }));
           setSel(new Set()); setEditId(null);
         }
       }
@@ -909,7 +915,11 @@ export default function App() {
       if (e.key === "f" && !e.ctrlKey && !e.metaKey) fitView();
       if ((e.ctrlKey || e.metaKey) && e.key === "f") { e.preventDefault(); setSearchOpen(s => !s); setSearchQuery(""); setSearchIdx(0); }
       if ((e.ctrlKey || e.metaKey) && e.key === "i") { e.preventDefault(); if (selRef.current.size === 1) setInspectorOpen(s => !s); }
-    }
+    };
+  });
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => keyHandlerRef.current(event);
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
@@ -985,11 +995,11 @@ export default function App() {
 
   // ── Minimap ──────────────────────────────────────────
   const mmBounds = useMemo(() => {
-    const vis = map.nodes.filter(n => isVisible(n.id));
+    const vis = map.nodes.filter(n => visibleSet.has(n.id));
     if (vis.length === 0) return null;
     const xs = vis.map(n => n.x), ys = vis.map(n => n.y);
     return { minX: Math.min(...xs) - 60, maxX: Math.max(...xs) + 60, minY: Math.min(...ys) - 40, maxY: Math.max(...ys) + 40 };
-  }, [map.nodes, collapsed]);
+  }, [map.nodes, visibleSet]);
 
   // ════════════════════════════════════════════════════
   //  RENDER

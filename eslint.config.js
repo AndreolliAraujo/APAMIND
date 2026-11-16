@@ -69,7 +69,7 @@ export default tseslint.config(
       "react/jsx-key": "warn",
       // Hooks
       "react-hooks/rules-of-hooks": "error",
-      "react-hooks/exhaustive-deps": "off", // arquitetura usa refs; rules-of-hooks ja protege
+      "react-hooks/exhaustive-deps": "warn",
       // Estilo
       "no-console": ["warn", { allow: ["warn", "error"] }],
       "no-unused-vars": "off",
