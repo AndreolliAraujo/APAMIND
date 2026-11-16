@@ -1,4 +1,4 @@
-# ApaMind 0.7.2
+# ApaMind 0.7.3
 
 Editor local de mapas mentais para Windows, macOS e Linux. O workspace fica no armazenamento
 local do aplicativo; links HTTP(S) abrem no navegador padrão e anexos locais são abertos pelo
@@ -82,12 +82,31 @@ npm.cmd run tauri:build
 
 `npm run build` chama `vite-build.cjs`, que redireciona `TEMP`/`TMP` para `.tmp/vite-build-temp`:
 neste ambiente o esbuild falha ao remover temporários na pasta padrão do Windows. Para o pacote
-desktop, os MSI/NSIS saem em `src-tauri\target\release\bundle\`. O primeiro build Rust pode levar
-vários minutos.
+desktop, o instalador sai em `src-tauri\target\release\bundle\nsis\`. O primeiro build Rust pode
+levar vários minutos.
 
-A configuração do app está em `src-tauri/tauri.conf.json`: nome `APAMIND`, versão `0.7.2`,
-identificador `com.apamind.desktop`. Os instaladores são artefatos locais; este repositório não
+A configuração do app está em `src-tauri/tauri.conf.json`: nome `APAMIND`, versão `0.7.3`,
+identificador `com.apamind.desktop`. O direcionamento do bundle Windows fica em
+`src-tauri/tauri.windows.conf.json` (somente `nsis`, com `installMode: currentUser`), usando a
+configuração por plataforma do Tauri. Os instaladores são artefatos locais; este repositório não
 publica nem distribui o aplicativo.
+
+## Instalação e atualização
+
+O pacote é um único `.exe` NSIS, **por usuário** (não pede administrador) e instala em
+`%LOCALAPPDATA%\APAMIND`. Os dados do workspace ficam em `%LOCALAPPDATA%\com.apamind.desktop` e não
+são removidos ao desinstalar.
+
+- **0.7.3 sobre uma instalação MSI anterior:** o NSIS detecta a instalação WiX/MSI e sempre a
+  desinstala antes de instalar, pedindo confirmação (o UAC aparece porque o MSI é por máquina).
+- **NSIS sobre NSIS:** o instalador detecta a versão anterior e oferece "desinstalar antes de
+  instalar" (padrão) ou reinstalar por cima. Nos dois casos fica **uma única** entrada em Aplicativos
+  instalados.
+- **MSI descontinuado:** o template WiX do Tauri 2.11 declara `AllowDowngrades="yes"`, e a tabela
+  `Upgrade` do MSI marca a versão anterior somente como detectada (`OnlyDetect`). O
+  `RemoveExistingProducts` fica sem nada a remover e a versão nova se registra como **segundo
+  produto** na mesma pasta — foi o que produziu duas entradas (0.7.1 e 0.7.2) apontando para
+  `C:\Program Files\APAMIND`. Decisão registrada em `docs/CONTEXTO_DO_PROJETO.md`.
 
 ## Arquitetura
 
@@ -150,7 +169,7 @@ arquivos referenciados não são incluídos no backup.
 
 ## Distribuição
 
-A configuração de bundle está pronta para gerar instaladores, mas a distribuição pública ainda
-requer certificado de assinatura de código para Windows e decisão sobre canal de
-atualização/distribuição. Builds locais não são assinados. Teste o instalador em máquina limpa
+O bundle configurado é o instalador NSIS por usuário, ainda **não assinado**. A distribuição pública
+segue pendente de certificado de assinatura de código para Windows (sem ele o SmartScreen avisa
+"editor desconhecido") e de decisão sobre canal de atualização. Teste o instalador em máquina limpa
 antes de disponibilizá-lo.
