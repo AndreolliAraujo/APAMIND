@@ -2,7 +2,6 @@
 //  APAMIND v2 — Editor completo de mapas mentais
 // ═══════════════════════════════════════════════════════════════════
 
-import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import DOMPurify from "dompurify";
 import {
@@ -1751,7 +1750,7 @@ export default function App() {
       {/* ─── CREATE MAP MODAL ───────────────────────── */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setShowModal(false)}>
-          <motion.div role="dialog" aria-modal="true" initial={{ opacity: 0, scale: 0.96, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} onClick={ev => ev.stopPropagation()}
+          <div role="dialog" aria-modal="true" onClick={ev => ev.stopPropagation()}
             className={`w-full max-w-lg rounded-3xl border p-6 shadow-2xl ${isDark ? "border-white/10 bg-[#0e111d]" : "border-black/10 bg-white"}`}>
             <h3 className="text-xl font-semibold">Criar novo mapa</h3>
             <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Escolha um nome e um modelo</p>
@@ -1768,14 +1767,14 @@ export default function App() {
               <button onClick={() => setShowModal(false)} className={`rounded-xl border px-4 py-2 text-sm ${btn}`}>Cancelar</button>
               <button onClick={confirmCreate} className="rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-2 text-sm font-semibold text-white shadow">Criar mapa</button>
             </div>
-          </motion.div>
+          </div>
         </div>
       )}
 
       {/* ─── EXPORT MODAL ───────────────────────────── */}
       {showExport && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setShowExport(false)}>
-          <motion.div role="dialog" aria-modal="true" initial={{ opacity: 0, scale: 0.96, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} onClick={ev => ev.stopPropagation()}
+          <div role="dialog" aria-modal="true" onClick={ev => ev.stopPropagation()}
             className={`w-full max-w-md rounded-3xl border p-6 shadow-2xl ${isDark ? "border-white/10 bg-[#0e111d]" : "border-black/10 bg-white"}`}>
             <h3 className="text-xl font-semibold">Exportar mapa</h3>
             <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Escolha o formato de saída</p>
@@ -1791,14 +1790,14 @@ export default function App() {
             <div className="flex justify-end mt-5">
               <button onClick={() => setShowExport(false)} className={`rounded-xl border px-4 py-2 text-sm ${btn}`}>Fechar</button>
             </div>
-          </motion.div>
+          </div>
         </div>
       )}
 
       {/* ─── IMPORT MODAL ───────────────────────────── */}
       {showImport && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setShowImport(false)}>
-          <motion.div role="dialog" aria-modal="true" initial={{ opacity: 0, scale: 0.96, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} onClick={ev => ev.stopPropagation()}
+          <div role="dialog" aria-modal="true" onClick={ev => ev.stopPropagation()}
             className={`w-full max-w-md rounded-3xl border p-6 shadow-2xl ${isDark ? "border-white/10 bg-[#0e111d]" : "border-black/10 bg-white"}`}>
             <h3 className="text-xl font-semibold">Importar mapa</h3>
             <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Selecione um arquivo compatível</p>
@@ -1814,7 +1813,7 @@ export default function App() {
             <div className="flex justify-end mt-5">
               <button onClick={() => setShowImport(false)} className={`rounded-xl border px-4 py-2 text-sm ${btn}`}>Fechar</button>
             </div>
-          </motion.div>
+          </div>
         </div>
       )}
 
@@ -1825,7 +1824,7 @@ export default function App() {
         const otherMaps = ws.maps.filter(m => m.id !== map.id);
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setAttachModal(null)}>
-            <motion.div role="dialog" aria-modal="true" initial={{ opacity: 0, scale: 0.96, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} onClick={ev => ev.stopPropagation()}
+            <div role="dialog" aria-modal="true" onClick={ev => ev.stopPropagation()}
               className={`w-full max-w-lg rounded-3xl border p-6 shadow-2xl ${isDark ? "border-white/10 bg-[#0e111d]" : "border-black/10 bg-white"}`}>
               <h3 className="text-xl font-semibold">📎 Inserir {att.label}</h3>
               <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
@@ -1890,7 +1889,7 @@ export default function App() {
                   </button>
                 )}
               </div>
-            </motion.div>
+            </div>
           </div>
         );
       })()}
@@ -1901,7 +1900,7 @@ export default function App() {
         if (!node || !node.attachments?.length) return null;
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setNodeAttachModal(null)}>
-            <motion.div role="dialog" aria-modal="true" initial={{ opacity: 0, scale: 0.96, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} onClick={ev => ev.stopPropagation()}
+            <div role="dialog" aria-modal="true" onClick={ev => ev.stopPropagation()}
               className={`w-full max-w-md rounded-3xl border p-6 shadow-2xl ${isDark ? "border-white/10 bg-[#0e111d]" : "border-black/10 bg-white"}`}>
               <h3 className="text-xl font-semibold">📎 Anexos de "{node.title}"</h3>
               <div className="mt-4 space-y-2 max-h-96 overflow-y-auto custom-scroll">
@@ -1932,7 +1931,7 @@ export default function App() {
               <div className="flex justify-end mt-5">
                 <button onClick={() => setNodeAttachModal(null)} className={`rounded-xl border px-4 py-2 text-sm ${btn}`}>Fechar</button>
               </div>
-            </motion.div>
+            </div>
           </div>
         );
       })()}
@@ -1941,11 +1940,8 @@ export default function App() {
       {showNotesModal && selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
           onClick={() => { setShowNotesModal(false); setNotesEditMode(false); }}>
-          <motion.div
+          <div
             role="dialog" aria-modal="true"
-            initial={{ opacity: 0, scale: 0.96, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.18 }}
             onClick={ev => ev.stopPropagation()}
             className={`w-full max-w-lg rounded-3xl border shadow-2xl flex flex-col ${isDark ? "border-white/10 bg-[#0c0f1a]" : "border-black/8 bg-white"}`}
             style={{ maxHeight: "80vh" }}
@@ -2031,7 +2027,7 @@ export default function App() {
                 )}
               </div>
             )}
-          </motion.div>
+          </div>
         </div>
       )}
 
@@ -2071,11 +2067,8 @@ export default function App() {
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
             onClick={() => setShowChecklistModal(false)}>
-            <motion.div
+            <div
               role="dialog" aria-modal="true"
-              initial={{ opacity: 0, scale: 0.96, y: 12 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ duration: 0.18 }}
               onClick={ev => ev.stopPropagation()}
               className={`w-full max-w-md rounded-3xl border shadow-2xl flex flex-col ${isDark ? "border-white/10 bg-[#0c0f1a]" : "border-black/8 bg-white"}`}
               style={{ maxHeight: "82vh" }}
@@ -2185,7 +2178,7 @@ export default function App() {
                   >Limpar concluídos</button>
                 </div>
               )}
-            </motion.div>
+            </div>
           </div>
         );
       })()}
@@ -2193,10 +2186,8 @@ export default function App() {
       {/* ─── LAYOUT MODAL ───────────────────────────── */}
       {showLayoutModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowLayoutModal(false)}>
-          <motion.div
+          <div
             role="dialog" aria-modal="true"
-            initial={{ opacity: 0, scale: 0.95, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
             onClick={ev => ev.stopPropagation()}
             className={`w-full max-w-3xl rounded-3xl border shadow-2xl overflow-hidden ${isDark ? "border-white/10 bg-[#0a0c18]" : "border-black/10 bg-white"}`}
           >
@@ -2367,17 +2358,15 @@ export default function App() {
                 ✨ Aplicar modelo sugerido
               </button>
             </div>
-          </motion.div>
+          </div>
         </div>
       )}
 
       {/* ─── BACKGROUND PANEL ───────────────────────── */}
       {showBgPanel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowBgPanel(false)}>
-          <motion.div
+          <div
             role="dialog" aria-modal="true"
-            initial={{ opacity: 0, scale: 0.95, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
             onClick={ev => ev.stopPropagation()}
             className={`w-full max-w-3xl rounded-3xl border shadow-2xl overflow-hidden ${isDark ? "border-white/10 bg-[#0a0c18]" : "border-black/10 bg-white"}`}
           >
@@ -2482,7 +2471,7 @@ export default function App() {
                 </div>
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
       )}
 

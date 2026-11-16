@@ -84,3 +84,21 @@ button { font: inherit; }
   will-change: transform;
   transform-origin: center;
 }
+
+/* Entrada dos modais — substitui o framer-motion sem dependência externa. */
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+[role="dialog"],
+[role="alertdialog"] {
+  animation: modal-in 180ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [role="dialog"],
+  [role="alertdialog"] {
+    animation: none;
+  }
+}
