@@ -16,16 +16,6 @@ export function exportMarkdown(map: MMap) {
     if (n.checklist?.length) {
       n.checklist.forEach(c => { md += `${indent}  - [${c.done ? "x" : " "}] ${escMarkdownInline(c.text)}\n`; });
     }
-    if (n.links?.length) {
-      // Valida scheme dos links antes de emitir
-      n.links.forEach(l => {
-        if (/^(https?:|mailto:|tel:)/i.test(l.url)) {
-          md += `${indent}  - [${escMarkdownInline(l.label)}](${l.url})\n`;
-        } else {
-          md += `${indent}  - ${escMarkdownInline(l.label)} (link inválido: scheme bloqueado)\n`;
-        }
-      });
-    }
     map.edges.filter(e => e.source === nodeId).forEach(e => walk(e.target, depth + 1));
   }
   const root = map.nodes[0];

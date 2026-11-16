@@ -1,7 +1,7 @@
 // Validação do formato de mapa recebido por importação.
 
 import type { AttachType, EdgeStyle, MMap, NodeShape } from "./model";
-import { ATTACH_TYPES, TEMPLATES, uid } from "./model";
+import { ATTACH_TYPES, TEMPLATES, legacyLinksToAttachments, uid } from "./model";
 
 // ── Validador central de mapa ─────────────────────────────────────
 const SHAPES = new Set<NodeShape>(["card", "rect", "circle", "capsule", "hex"]);
@@ -43,9 +43,7 @@ export function validateMMap(raw: unknown): { ok: true; map: MMap } | { ok: fals
     if (n.checklist !== undefined && (!Array.isArray(n.checklist) || n.checklist.some(item =>
       !item || typeof item !== "object" || typeof item.text !== "string" || typeof item.done !== "boolean",
     ))) return { ok: false, error: `Nó '${n.id}' com checklist inválido` };
-    if (n.links !== undefined && (!Array.isArray(n.links) || n.links.some(link =>
-      !link || typeof link !== "object" || typeof link.url !== "string" || typeof link.label !== "string",
-    ))) return { ok: false, error: `Nó '${n.id}' com links inválidos` };
+    if (n.links !== undefined && !Array.isArray(n.links)) return { ok: false, error: `Nó '${n.id}' com links inválidos` };
     if (n.attachments !== undefined && (!Array.isArray(n.attachments) || n.attachments.some(attachment =>
       !attachment || typeof attachment !== "object" || !isNonEmptyString(attachment.id)
       || typeof attachment.type !== "string" || !ATTACHMENT_TYPES.has(attachment.type as AttachType)
@@ -80,7 +78,15 @@ export function validateMMap(raw: unknown): { ok: true; map: MMap } | { ok: fals
     ts: isNonEmptyString(r.ts) ? (r.ts as string) : new Date().toISOString(),
     ...(typeof r.schemaVersion === "number" && Number.isFinite(r.schemaVersion) ? { schemaVersion: r.schemaVersion } : {}),
     ...(Array.isArray(r.collapsedIds) ? { collapsedIds: r.collapsedIds.flatMap(id => idRemap.has(id) ? [idRemap.get(id)!] : []) } : {}),
-    nodes: (r.nodes as any[]).map((n) => ({ ...n, id: idRemap.get(n.id), note: typeof n.note === "string" ? n.note : "", shape: n.shape ?? "card" })),
+    nodes: (r.nodes as any[]).map((n) => ({
+      ...n,
+      id: idRemap.get(n.id),
+      note: typeof n.note === "string" ? n.note : "",
+      shape: n.shape ?? "card",
+      // Campo legado `links` é migrado para anexos do tipo url e removido.
+      attachments: legacyLinksToAttachments(n.attachments, n.links),
+      links: undefined,
+    })),
     edges: (r.edges as any[]).map((e) => ({ ...e, id: uid("e"), source: idRemap.get(e.source)!, target: idRemap.get(e.target)! })),
   };
   return { ok: true, map };

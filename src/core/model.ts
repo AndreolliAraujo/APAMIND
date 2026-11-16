@@ -7,8 +7,6 @@ export type AttachType = "url" | "image" | "video" | "audio" | "pdf" | "doc" | "
 
 export interface CheckItem { text: string; done: boolean; }
 
-export interface Hyperlink { url: string; label: string; }
-
 export interface Attachment {
   id: string;
   type: AttachType;
@@ -45,7 +43,6 @@ export interface MNode {
   markdown?: string;
   checklist?: CheckItem[];
   icon?: string; // emoji
-  links?: Hyperlink[];
   attachments?: Attachment[];
   collapsed?: boolean; // @deprecated — estado gerenciado via MMap.collapsedIds
   x: number;
@@ -103,6 +100,25 @@ export function mkNode(title:string,note:string,x:number,y:number,tone:number,sh
 }
 export function mkEdge(source:string,target:string,style?:EdgeStyle):MEdge{
   return {id:uid("e"),source,target,style};
+}
+
+/**
+ * Migra o campo legado `links` (descontinuado) para anexos do tipo `url`.
+ * Entradas inválidas são ignoradas e um destino já anexado não é duplicado.
+ */
+export function legacyLinksToAttachments(attachments: Attachment[] | undefined, links: unknown): Attachment[] {
+  const out: Attachment[] = Array.isArray(attachments) ? attachments.map(item => ({ ...item })) : [];
+  if (!Array.isArray(links)) return out;
+  for (const link of links) {
+    if (!link || typeof link !== "object") continue;
+    const candidate = link as { url?: unknown; label?: unknown };
+    if (typeof candidate.url !== "string" || typeof candidate.label !== "string") continue;
+    const url = candidate.url.trim();
+    if (!/^https?:\/\//i.test(url)) continue;
+    if (out.some(item => item.type === "url" && item.path === url)) continue;
+    out.push({ id: uid("att"), type: "url", name: candidate.label.trim() || url, path: url });
+  }
+  return out;
 }
 
 // ── Hierarchy helpers ─────────────────────────────────────────────

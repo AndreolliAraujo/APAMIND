@@ -15,7 +15,6 @@ function mapWithTwoNodes() {
   const parent = mkNode("Parent", "", 0, 0, 0);
   const child = mkNode("Child", "", 10, 20, 1, "rect", {
     attachments: [{ id: "url-1", type: "url", name: "Docs", path: "https://docs.example.com/?q=1#top" }],
-    links: [{ label: "Home", url: "https://example.com" }],
   });
   const map = createMap("Test", "Livre");
   return { ...map, nodes: [parent, child], edges: [mkEdge(parent.id, child.id, "dashed")] };
@@ -32,7 +31,6 @@ describe("map operations", () => {
     const edited = updateNodeInMap(withChild, map.nodes[1].id, { title: "Renamed" });
     expect(edited.nodes[1].title).toBe("Renamed");
     expect(edited.nodes[1].attachments).toEqual(map.nodes[1].attachments);
-    expect(edited.nodes[1].links).toEqual(map.nodes[1].links);
   });
 
   it("rejects adding a child with a missing parent instead of creating a dangling edge", () => {
@@ -68,7 +66,6 @@ describe("map operations", () => {
     expect(result.map.nodes).toHaveLength(destination.nodes.length + 2);
     expect(pastedNodes).toHaveLength(2);
     expect(pastedNodes[1].attachments).toEqual(source.nodes[1].attachments);
-    expect(pastedNodes[1].links).toEqual(source.nodes[1].links);
     expect(pastedNodes[0].x).toBe(source.nodes[0].x + 50);
     expect(pastedNodes[0].y).toBe(source.nodes[0].y + 60);
     expect(result.map.edges).toHaveLength(destination.edges.length + 1);

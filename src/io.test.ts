@@ -11,7 +11,6 @@ function sampleMap() {
   const child = mkNode("References", "A useful note", 260, 180, 2, "rect", {
     markdown: "**Keep this text**",
     checklist: [{ text: "Review source", done: true }],
-    links: [{ label: "Reference site", url: "https://docs.example.com/topic?q=1#part" }],
     attachments: [
       { id: "att-url", type: "url", name: "Web docs", path: "https://docs.example.com/topic?q=1#part" },
       { id: "att-pdf", type: "pdf", name: "Local PDF", path: "C:\\Users\\Ana\\guide.pdf" },
@@ -38,7 +37,7 @@ const file = (name: string, contents: string | Uint8Array) => {
 };
 
 describe("importação e exportação", () => {
-  it("roundtrips JSON maps with relationships, notes, links, attachments, and map metadata", async () => {
+  it("roundtrips JSON maps with relationships, notes, attachments, and map metadata", async () => {
     const original = sampleMap();
     const result = await importFile(file("research.apamind.json", serializeMapJSON(original)));
 
@@ -54,7 +53,6 @@ describe("importação e exportação", () => {
       note: original.nodes[1].note,
       markdown: original.nodes[1].markdown,
       checklist: original.nodes[1].checklist,
-      links: original.nodes[1].links,
       attachments: original.nodes[1].attachments,
     });
     expect(imported.nodes[1].id).not.toBe(original.nodes[1].id);
@@ -67,7 +65,7 @@ describe("importação e exportação", () => {
     expect(imported.collapsedIds).toEqual([imported.nodes[1].id]);
   });
 
-  it("roundtrips a full backup with links and local attachments", async () => {
+  it("roundtrips a full backup with local attachments", async () => {
     const original = sampleMap();
     const backupText = serializeWorkspaceBackup([original]);
     const result = await importWorkspaceBackup(file("apamind_backup.json", backupText));
@@ -75,7 +73,6 @@ describe("importação e exportação", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.maps).toHaveLength(1);
-    expect(result.maps[0].nodes[1].links).toEqual(original.nodes[1].links);
     expect(result.maps[0].nodes[1].attachments).toEqual(original.nodes[1].attachments);
     const fileImport = await importFile(file("apamind_backup.json", backupText));
     expect(fileImport.ok && fileImport.kind).toBe("backup");
@@ -151,8 +148,19 @@ describe("importação e exportação", () => {
     expect(await importXMind(file("empty.xmind", emptyZip))).toMatchObject({ ok: false });
   });
 
-  it("validates imported map relationships and nested link/attachment structure", () => {
-    const invalid = { ...sampleMap(), nodes: [{ ...sampleMap().nodes[0], links: [{ url: 5, label: "bad" }] }] };
-    expect(validateMMap(invalid)).toMatchObject({ ok: false });
+  it("migrates the deprecated links field into url attachments", () => {
+    const legacy = {
+      ...sampleMap(),
+      nodes: [{ ...sampleMap().nodes[0], links: [{ url: "https://legacy.example.com/doc", label: "Legado" }] }],
+      edges: [],
+    };
+    const result = validateMMap(legacy);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const node = result.map.nodes[0] as unknown as Record<string, unknown>;
+    expect(node.links).toBeUndefined();
+    const attachments = node.attachments as { type: string; path: string; name: string }[];
+    expect(attachments).toHaveLength(1);
+    expect(attachments[0]).toMatchObject({ type: "url", path: "https://legacy.example.com/doc", name: "Legado" });
   });
 });

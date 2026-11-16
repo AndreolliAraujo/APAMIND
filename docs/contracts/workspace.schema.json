@@ -46,7 +46,6 @@
         "markdown": { "type": "string" },
         "checklist": { "type": "array", "items": { "$ref": "#/$defs/checkItem" } },
         "icon": { "type": "string", "description": "Emoji." },
-        "links": { "type": "array", "items": { "$ref": "#/$defs/hyperlink" } },
         "attachments": { "type": "array", "items": { "$ref": "#/$defs/attachment" } },
         "collapsed": { "type": "boolean", "description": "@deprecated: estado via map.collapsedIds." },
         "x": { "type": "number" },
@@ -80,8 +79,8 @@
       }
     },
     "hyperlink": {
+      "description": "Campo legado, descontinuado: links migram para attachments do tipo url na carga.",
       "type": "object",
-      "required": ["url", "label"],
       "additionalProperties": true,
       "properties": {
         "url": { "type": "string" },

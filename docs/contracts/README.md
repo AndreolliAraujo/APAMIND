@@ -14,3 +14,9 @@ Este diretório documenta o formato do arquivo de workspace do ApaMind.
   silenciosamente (ver `FutureVersionError` na Fase E).
 - `additionalProperties: true` em todos os níveis é intencional: dados desconhecidos de versões
   futuras são preservados, não descartados.
+
+## Campo legado `links`
+
+O campo `links` por nó foi **descontinuado**. Na carga e na importação ele é convertido para
+`attachments` do tipo `url` (`core/model.ts: legacyLinksToAttachments`) e removido do documento.
+Apenas URLs `http(s)` são migradas; entradas inválidas ou de outros esquemas são descartadas.

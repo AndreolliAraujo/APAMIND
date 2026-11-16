@@ -1,7 +1,7 @@
 // Recuperação e migração do workspace persistido.
 // Interpreta as cópias de armazenamento sem escolher silenciosamente entre versões.
 
-import { SCHEMA_VERSION, uid, type EdgeStyle, type NodeShape, type Workspace } from "../core/model";
+import { SCHEMA_VERSION, legacyLinksToAttachments, uid, type EdgeStyle, type NodeShape, type Workspace } from "../core/model";
 import { createMap } from "../core/templates";
 
 // Chaves de armazenamento local: v6 é a atual, v5 é legado de migração.
@@ -38,8 +38,8 @@ export function migrateWorkspace(ws: Workspace): Workspace {
       markdown: typeof n.markdown === "string" ? n.markdown : undefined,
       checklist: Array.isArray(n.checklist) ? n.checklist : undefined,
       icon: typeof n.icon === "string" ? n.icon : undefined,
-      links: Array.isArray(n.links) ? n.links : undefined,
-      attachments: Array.isArray(n.attachments) ? n.attachments : undefined,
+      links: undefined,
+      attachments: legacyLinksToAttachments(n.attachments, (n as { links?: unknown }).links),
       shape: (n.shape as NodeShape) || "card",
       tone: typeof n.tone === "number" ? n.tone : 0,
       scale: typeof n.scale === "number" ? n.scale : undefined,
