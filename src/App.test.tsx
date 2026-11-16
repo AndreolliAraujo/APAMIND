@@ -27,4 +27,20 @@ describe("App: atalhos de teclado", () => {
 
     await waitFor(() => expect(nodeButtons()).toHaveLength(before));
   });
+
+  it("aplica zoom com a roda do mouse depois que o canvas é montado", async () => {
+    render(<App />);
+    // O canvas só aparece depois das telas de boot; o listener nativo precisa ser
+    // religado nesse momento (regressão: roda do mouse não fazia zoom no desktop).
+    const canvas = await screen.findByTestId("canvas");
+    const zoomLevel = () => screen.getByTestId("zoom-level").textContent;
+
+    expect(zoomLevel()).toBe("100%");
+
+    fireEvent.wheel(canvas, { deltaY: 100, clientX: 10, clientY: 10 });
+    await waitFor(() => expect(zoomLevel()).toBe("92%"));
+
+    fireEvent.wheel(canvas, { deltaY: -100, clientX: 10, clientY: 10 });
+    await waitFor(() => expect(zoomLevel()).toBe("99%"));
+  });
 });

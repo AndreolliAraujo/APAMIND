@@ -2,7 +2,7 @@
 //  APAMIND v2 — Editor completo de mapas mentais
 // ═══════════════════════════════════════════════════════════════════
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DOMPurify from "dompurify";
 import {
   type MMap,
@@ -242,6 +242,13 @@ export default function App() {
 
   // Canvas
   const canvasRef = useRef<HTMLDivElement>(null);
+  // O canvas só monta depois das telas de boot; guardar o elemento em estado (via
+  // callback ref) permite religar listeners nativos quando ele realmente aparece.
+  const [canvasEl, setCanvasEl] = useState<HTMLDivElement | null>(null);
+  const setCanvasNode = useCallback((el: HTMLDivElement | null) => {
+    canvasRef.current = el;
+    setCanvasEl(el);
+  }, []);
   const [vp, setVp] = useState({ x: 0, y: 0, zoom: 1 });
   const vpRef = useRef(vp);
   vpRef.current = vp;
@@ -941,21 +948,20 @@ export default function App() {
 
   // ── Wheel zoom ───────────────────────────────────────
   useEffect(() => {
-    const el = canvasRef.current;
-    if (!el) return;
+    if (!canvasEl) return;
     const handler = (e: WheelEvent) => {
       e.preventDefault();
       const v = vpRef.current;
-      const r = el.getBoundingClientRect();
+      const r = canvasEl.getBoundingClientRect();
       const mx = e.clientX - r.left,
         my = e.clientY - r.top;
       const f = e.deltaY > 0 ? 0.92 : 1.08;
       const z = clamp(v.zoom * f, 0.1, 5);
       setVp({ x: mx - (mx - v.x) * (z / v.zoom), y: my - (my - v.y) * (z / v.zoom), zoom: z });
     };
-    el.addEventListener("wheel", handler, { passive: false });
-    return () => el.removeEventListener("wheel", handler);
-  }, []);
+    canvasEl.addEventListener("wheel", handler, { passive: false });
+    return () => canvasEl.removeEventListener("wheel", handler);
+  }, [canvasEl]);
 
   // rAF throttle para drag/pan: evita setWs em cada pixel de mousemove
   const rafId = useRef<number | null>(null);
@@ -1846,7 +1852,9 @@ export default function App() {
               >
                 −
               </button>
-              <span className="text-xs w-12 text-center tabular-nums">{Math.round(vp.zoom * 100)}%</span>
+              <span data-testid="zoom-level" className="text-xs w-12 text-center tabular-nums">
+                {Math.round(vp.zoom * 100)}%
+              </span>
               <button
                 onClick={() => setVp((v) => ({ ...v, zoom: clamp(v.zoom * 1.15, 0.1, 5) }))}
                 className={`rounded-lg border px-2 py-1.5 text-xs ${btn}`}
@@ -1904,7 +1912,8 @@ export default function App() {
 
           {/* ─── CANVAS ─────────────────────────────── */}
           <div
-            ref={canvasRef}
+            ref={setCanvasNode}
+            data-testid="canvas"
             className="flex-1 relative overflow-hidden"
             style={{ cursor }}
             onMouseDown={onCanvasDown}
