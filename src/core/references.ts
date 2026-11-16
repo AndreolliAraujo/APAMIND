@@ -10,6 +10,31 @@ export function mapReferenceTarget(path: string): string | null {
   return id.length > 0 ? id : null;
 }
 
+/** Uma referência interna `map://` cujo mapa alvo não existe mais. */
+export interface BrokenMapLink {
+  mapId: string;
+  nodeId: string;
+  attachmentId: string;
+  targetId: string;
+}
+
+/** Varre os mapas e devolve as referências `map://` órfãs. */
+export function collectBrokenMapLinks(maps: MMap[]): BrokenMapLink[] {
+  const ids = new Set(maps.map(map => map.id));
+  const broken: BrokenMapLink[] = [];
+  for (const map of maps) {
+    for (const node of map.nodes) {
+      for (const att of node.attachments ?? []) {
+        const target = mapReferenceTarget(att.path);
+        if (target !== null && !ids.has(target)) {
+          broken.push({ mapId: map.id, nodeId: node.id, attachmentId: att.id, targetId: target });
+        }
+      }
+    }
+  }
+  return broken;
+}
+
 /**
  * Reescreve referências `map://<idAntigo>` para `map://<idNovo>` segundo o
  * mapeamento fornecido. Referências sem correspondência são mantidas intactas

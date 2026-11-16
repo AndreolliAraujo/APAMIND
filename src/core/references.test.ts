@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Attachment } from "./model";
 import { mkNode } from "./model";
 import { createMap } from "./templates";
-import { mapReferenceTarget, remapMapReferences } from "./references";
+import { mapReferenceTarget, remapMapReferences, collectBrokenMapLinks } from "./references";
 
 function mapWithAttachment(attachment: Attachment) {
   const map = createMap("m", "Livre");
@@ -48,5 +48,31 @@ describe("remapMapReferences", () => {
     expect(out.title).toBe(map.title);
     expect(out.nodes[0].title).toBe("n");
     expect(out.nodes[0].attachments?.[0].name).toBe("x");
+  });
+});
+
+describe("collectBrokenMapLinks", () => {
+  it("detecta referências internas cujo alvo não existe", () => {
+    const a = createMap("A", "Livre");
+    const b = createMap("B", "Livre");
+    const node = mkNode("n", "", 0, 0, 0, "card", {
+      attachments: [{ id: "x", type: "map", name: "perdido", path: "map://INEXISTENTE" }],
+    });
+    const linked = { ...b, nodes: [...b.nodes, node] };
+
+    const broken = collectBrokenMapLinks([a, linked]);
+    expect(broken).toHaveLength(1);
+    expect(broken[0]).toMatchObject({ mapId: b.id, nodeId: "n", attachmentId: "x", targetId: "INEXISTENTE" });
+  });
+
+  it("não reporta referências válidas", () => {
+    const a = createMap("A", "Livre");
+    const b = createMap("B", "Livre");
+    const node = mkNode("n", "", 0, 0, 0, "card", {
+      attachments: [{ id: "x", type: "map", name: "ok", path: `map://${a.id}` }],
+    });
+    const linked = { ...b, nodes: [...b.nodes, node] };
+
+    expect(collectBrokenMapLinks([a, linked])).toHaveLength(0);
   });
 });

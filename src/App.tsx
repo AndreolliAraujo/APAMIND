@@ -10,6 +10,7 @@ import {
   TEMPLATES, ATTACH_TYPES, ATTACH_ICONS,
   uid, clamp, mkNode, mkEdge,
 } from "./core/model";
+import { collectBrokenMapLinks } from "./core/references";
 import { edgePath } from "./core/geometry";
 import { TONES, TONE_HEX, SHAPES, shapeClass } from "./ui/theme";
 import { createMap } from "./core/templates";
@@ -131,6 +132,7 @@ export default function App() {
   const map = ws.maps.find(m => m.id === ws.active) ?? ws.maps[0];
   // map nunca e undefined aqui: loadWs() garante workspace com maps via migrateWorkspace
   const nodeMap = useMemo(() => new Map(map.nodes.map(n => [n.id, n])), [map.nodes]);
+  const brokenLinks = useMemo(() => collectBrokenMapLinks(ws.maps), [ws.maps]);
 
   // Canvas
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -1150,6 +1152,13 @@ export default function App() {
                 {saveError && <p role="alert" className="text-xs text-red-400 mt-1">{saveError}</p>}
               {showStorageFull && (
                 <p className="text-xs text-red-500 mt-1">Armazenamento local cheio! Algumas mudanças podem não ter sido salvas. Exporte um backup e remova mapas antigos.</p>
+              )}
+              {brokenLinks.length > 0 && (
+                <p role="status" className="text-xs text-amber-400 mt-1">
+                  {brokenLinks.length === 1
+                    ? "1 link para outro mapa está quebrado (o mapa foi excluído ou não foi importado)."
+                    : `${brokenLinks.length} links para outros mapas estão quebrados.`}
+                </p>
               )}
               </div>
             </div>
