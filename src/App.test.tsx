@@ -27,4 +27,22 @@ describe("App: atalhos de teclado", () => {
 
     await waitFor(() => expect(nodeButtons()).toHaveLength(before));
   });
+
+  it("aplica zoom com a roda do mouse depois que o canvas é montado", async () => {
+    render(<App />);
+    // O canvas só aparece depois das telas de boot; o listener nativo precisa ser
+    // religado nesse momento (regressão: roda do mouse não fazia zoom no desktop).
+    const canvas = await screen.findByTestId("canvas");
+    const zoomPercentual = () => Number(screen.getByTestId("zoom-level").textContent?.replace(/\D/g, ""));
+
+    // fitView roda no boot e define o zoom inicial; o teste parte do valor observado.
+    const inicial = zoomPercentual();
+    expect(inicial).toBeGreaterThan(0);
+
+    fireEvent.wheel(canvas, { deltaY: 100, clientX: 10, clientY: 10 });
+    await waitFor(() => expect(zoomPercentual()).toBe(Math.round((inicial / 100) * 0.92 * 100)));
+
+    fireEvent.wheel(canvas, { deltaY: -100, clientX: 10, clientY: 10 });
+    await waitFor(() => expect(zoomPercentual()).toBe(Math.round((inicial / 100) * 0.92 * 1.08 * 100)));
+  });
 });
