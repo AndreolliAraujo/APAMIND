@@ -2,7 +2,7 @@
 
 import { uid, type MMap, type Workspace } from "../core/model";
 import { createMap } from "../core/templates";
-import { SK, WorkspaceRecoveryError, localWorkspace, migrateWorkspace, parseStoredWorkspace, sameWorkspace } from "./recovery";
+import { LEGACY_SK, SK, WorkspaceRecoveryError, localWorkspace, migrateWorkspace, parseStoredWorkspace, sameWorkspace } from "./recovery";
 
 // Evento lancado quando o armazenamento local esta cheio.
 const STORAGE_FULL_EVENT = "apamind:storage-full";
@@ -125,6 +125,95 @@ export async function loadWsAsync(): Promise<Workspace | null> {
   }
   markWorkspacePersisted(fs);
   return local;
+}
+
+// ── Resolução de fontes no boot (usada pela interface) ─────────────
+export interface SourceSnapshot {
+  raw: string | null;
+  workspace: Workspace | null;
+  error: string | null;
+}
+
+export interface WorkspaceConflict {
+  detail: string;
+  file: SourceSnapshot;
+  local: SourceSnapshot;
+}
+
+export type BootOutcome =
+  | { kind: "ready"; workspace: Workspace; source: "file" | "local" }
+  | { kind: "empty" }
+  | { kind: "conflict"; conflict: WorkspaceConflict };
+
+async function readFileSnapshot(): Promise<SourceSnapshot> {
+  if (!isTauri()) return { raw: null, workspace: null, error: null };
+  let fs: typeof import("@tauri-apps/plugin-fs");
+  try { fs = await import("@tauri-apps/plugin-fs"); }
+  catch (e) { return { raw: null, workspace: null, error: `Sem acesso ao filesystem: ${String(e)}` }; }
+
+  const options = { baseDir: fs.BaseDirectory.AppLocalData };
+  let exists: boolean;
+  try { exists = await fs.exists(FS_FILENAME, options); }
+  catch (e) { return { raw: null, workspace: null, error: `Não foi possível verificar ${FS_FILENAME}: ${String(e)}` }; }
+  if (!exists) return { raw: null, workspace: null, error: null };
+
+  let raw: string;
+  try { raw = await fs.readTextFile(FS_FILENAME, options); }
+  catch (e) { return { raw: null, workspace: null, error: `Não foi possível ler ${FS_FILENAME}: ${String(e)}` }; }
+
+  try { return { raw, workspace: parseStoredWorkspace(raw, FS_FILENAME), error: null }; }
+  catch (e) { return { raw, workspace: null, error: e instanceof Error ? e.message : String(e) }; }
+}
+
+function readLocalSnapshot(): SourceSnapshot {
+  let raw: string | null = null;
+  try { raw = localStorage.getItem(SK) ?? localStorage.getItem(LEGACY_SK); } catch { /* storage indisponível */ }
+  try { return { raw, workspace: localWorkspace(true), error: null }; }
+  catch (e) { return { raw, workspace: null, error: e instanceof Error ? e.message : String(e) }; }
+}
+
+/**
+ * Lê as duas fontes sem alterar dados e decide o que fazer no boot.
+ * Divergência ou fonte inválida viram `conflict` — nunca escolha silenciosa.
+ */
+export async function resolveBootWorkspace(): Promise<BootOutcome> {
+  const file = await readFileSnapshot();
+  const local = readLocalSnapshot();
+
+  const errors = [file.error, local.error].filter((value): value is string => Boolean(value));
+  if (errors.length > 0) {
+    return { kind: "conflict", conflict: { detail: errors.join(" "), file, local } };
+  }
+
+  if (file.workspace && local.workspace) {
+    if (sameWorkspace(file.workspace, local.workspace)) {
+      markWorkspacePersisted(file.workspace);
+      return { kind: "ready", workspace: file.workspace, source: "file" };
+    }
+    return {
+      kind: "conflict",
+      conflict: {
+        detail: "As cópias do arquivo workspace.json e do armazenamento local divergem. Nenhuma será alterada até você decidir.",
+        file,
+        local,
+      },
+    };
+  }
+
+  if (file.workspace) {
+    markWorkspacePersisted(file.workspace);
+    return { kind: "ready", workspace: file.workspace, source: "file" };
+  }
+  if (local.workspace) return { kind: "ready", workspace: local.workspace, source: "local" };
+  return { kind: "empty" };
+}
+
+/** Preserva um conteúdo bruto em arquivo temporário coberto pela capability. */
+export async function preserveRecoveryCopy(raw: string, label: string): Promise<string> {
+  const fs = await import("@tauri-apps/plugin-fs");
+  const name = `${FS_FILENAME}.tmp-recovery-${label}`;
+  await fs.writeTextFile(name, raw, { baseDir: fs.BaseDirectory.AppLocalData });
+  return name;
 }
 
 export function saveWs(ws: Workspace): Promise<SaveResult> {

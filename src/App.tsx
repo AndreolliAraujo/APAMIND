@@ -18,8 +18,8 @@ import {
   autoLayoutTree, autoLayoutRadial, autoLayoutFlow, autoLayoutOrgChart, autoLayoutFishbone,
   autoLayoutMindMap, autoLayoutTimeline, autoLayoutGrid, getTemplateLayout,
 } from "./core/layout";
-import { loadWs, loadWsAsync, saveWs, flushSave, onStorageFull, onSaveState, type SaveStatus } from "./storage/workspace";
-import { exportJSON, exportMarkdown, exportSVG, exportPNG, exportHTML, printMap, exportWorkspaceBackup } from "./storage/export";
+import { loadWs, saveWs, flushSave, onStorageFull, onSaveState, markWorkspacePersisted, preserveRecoveryCopy, resolveBootWorkspace, type SaveStatus, type WorkspaceConflict } from "./storage/workspace";
+import { exportJSON, exportMarkdown, exportSVG, exportPNG, exportHTML, printMap, exportWorkspaceBackup, exportRecoveryCopies } from "./storage/export";
 import { importFile } from "./storage/import";
 import { createCloseGuard, type CloseFailureStage, type CloseGuard } from "./closeGuard";
 import { createCloseProtectionController, isWebDevelopmentMode, type CloseProtectionStatus } from "./closeProtection";
@@ -29,6 +29,7 @@ import { addNodeToMap, copyMapSelection, pasteMapSelection, removeEdgeFromMap, r
 import { createMapHistory, recordMapHistory, redoMapHistory, undoMapHistory } from "./mapHistory";
 import { BACKGROUND_PRESETS, PATTERN_CSS, PATTERN_SIZES, hexToRgba, rgbaToHex, type BackgroundPreset } from "./backgrounds";
 import { CloseFailureDialog, ColorInput, CtxBtn, EmojiPicker } from "./components/AppControls";
+import { RecoveryDialog } from "./components/RecoveryDialog";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -119,6 +120,8 @@ export default function App() {
   });
   const [bootIssue, setBootIssue] = useState<string | null>(initialLoad.error);
   const [bootReady, setBootReady] = useState(false);
+  const [conflict, setConflict] = useState<WorkspaceConflict | null>(null);
+  const [recoveryBusy, setRecoveryBusy] = useState(false);
   const [ws, setWs] = useState<Workspace>(initialLoad.workspace);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -141,6 +144,7 @@ export default function App() {
   const wsRef = useRef(ws); wsRef.current = ws;
   const bootReadyRef = useRef(bootReady); bootReadyRef.current = bootReady;
   const bootIssueRef = useRef(bootIssue); bootIssueRef.current = bootIssue;
+  const conflictRef = useRef<WorkspaceConflict | null>(conflict); conflictRef.current = conflict;
   const closeGuardRef = useRef<CloseGuard | null>(null);
   const closeProtectionStartedRef = useRef(false);
   const retryCloseProtectionRef = useRef<() => void>(() => {});
@@ -279,6 +283,7 @@ export default function App() {
       getWorkspace: () => wsRef.current,
       saveWorkspace: async snapshot => {
         if (bootIssueRef.current) return { success: true, quotaExceeded: false };
+        if (conflictRef.current) return { success: true, quotaExceeded: false };
         if (!bootReadyRef.current) {
           return { success: false, quotaExceeded: false, error: "O ApaMind ainda está verificando os arquivos de dados. Tente fechar novamente em instantes." };
         }
@@ -322,13 +327,52 @@ export default function App() {
     void controller.start();
   }, []);
 
-  // Boot: carrega workspace do filesystem (Tauri) e sobrescreve o estado inicial
+  // Boot: resolve as fontes de dados; divergência vira decisão do usuário, não bloqueio mudo.
   useEffect(() => {
-    loadWsAsync().then(ws => {
-      if (ws) setWs(ws);
+    resolveBootWorkspace().then(outcome => {
+      if (outcome.kind === "conflict") { setConflict(outcome.conflict); return; }
+      if (outcome.kind === "ready") { setWs(outcome.workspace); setBootIssue(null); }
       if (!initialLoad.error) setBootReady(true);
     }).catch(e => setBootIssue(String(e)));
   }, []);
+
+  async function applyFileCopy() {
+    if (!conflict?.file.workspace) return;
+    setRecoveryBusy(true);
+    try {
+      setWs(conflict.file.workspace);
+      markWorkspacePersisted(conflict.file.workspace);
+      setConflict(null);
+      setBootIssue(null);
+      setBootReady(true);
+    } finally { setRecoveryBusy(false); }
+  }
+
+  async function applyLocalCopy() {
+    if (!conflict?.local.workspace) return;
+    setRecoveryBusy(true);
+    try {
+      if (conflict.file.raw !== null) {
+        try { await preserveRecoveryCopy(conflict.file.raw, String(Date.now())); }
+        catch (e) { window.alert(`Não foi possível preservar o arquivo atual: ${String(e)}`); return; }
+      }
+      const target = conflict.local.workspace;
+      setWs(target);
+      setConflict(null);
+      setBootIssue(null);
+      setBootReady(true);
+      void saveWs(target);
+    } finally { setRecoveryBusy(false); }
+  }
+
+  function exportRecovery() {
+    if (conflict) exportRecoveryCopies(conflict);
+  }
+
+  function closeWithoutChanges() {
+    const appWindow = (window as any).__TAURI__?.window?.getCurrentWindow?.();
+    if (appWindow?.close) void appWindow.close();
+  }
 
   // Avisa usuario se armazenamento local encher (QuotaExceededError)
   useEffect(() => onStorageFull(() => {
@@ -968,6 +1012,21 @@ export default function App() {
           </div>
         )}
       </section>
+    </main>
+  );
+
+  if (conflict) return (
+    <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-8">
+      <RecoveryDialog
+        conflict={conflict}
+        busy={recoveryBusy}
+        onUseFile={() => void applyFileCopy()}
+        onUseLocal={() => void applyLocalCopy()}
+        onExport={exportRecovery}
+        onCloseUnchanged={closeWithoutChanges}
+      />
+      <CloseFailureDialog open={closeDialogOpen} saving={closeSaving} error={closeError} failureStage={closeFailureStage} onRetry={() => closeGuardRef.current?.retry()} onCancel={() => { setCloseDialogOpen(false); setCloseError(null); }} />
+      <CloseSavingNotice open={closeSaving} slow={closeSaveSlow} />
     </main>
   );
 

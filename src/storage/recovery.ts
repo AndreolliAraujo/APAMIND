@@ -7,7 +7,7 @@ import { validateWorkspaceIntegrity } from "../core/validation";
 
 // Chaves de armazenamento local: v6 é a atual, v5 é legado de migração.
 export const SK = "apamind.v6";
-const LEGACY_SK = "apamind.v5";
+export const LEGACY_SK = "apamind.v5";
 
 export class WorkspaceRecoveryError extends Error {
   constructor(message: string) {

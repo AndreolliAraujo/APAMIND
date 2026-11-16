@@ -4,3 +4,4 @@ export { exportSVG } from "./svg";
 export { exportPNG } from "./png";
 export { exportHTML } from "./html";
 export { printMap } from "./print";
+export { exportRecoveryCopies } from "./recovery";
