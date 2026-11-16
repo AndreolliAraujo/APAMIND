@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "apamind",
   "private": true,
   "version": "0.7.1",
@@ -25,12 +25,10 @@
   },
   "dependencies": {
     "@tauri-apps/plugin-fs": "^2.7.1",
-    "clsx": "2.1.1",
     "dompurify": "^3.4.17",
     "fflate": "^0.8.3",
     "react": "19.2.6",
-    "react-dom": "19.2.6",
-    "tailwind-merge": "3.4.0"
+    "react-dom": "19.2.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
