@@ -55,6 +55,24 @@ mapa, referências entre mapas e um teste de componente do fluxo de atalhos. O C
 `npm audit --omit=dev`. O build desktop roda sob demanda em `.github/workflows/desktop.yml`
 (`cargo check` no Windows).
 
+## Fluxo de mudanças
+
+A branch `main` é protegida por ruleset: exige o check `typecheck, lint, format, test, build` e
+bloqueia force push e exclusão. Não há push direto — toda mudança entra por pull request:
+
+```powershell
+git switch -c fix/algum-ajuste
+# ... altera, testa, commita ...
+git push -u origin fix/algum-ajuste
+# abre o PR; quando o CI ficar verde, faça o merge (squash recomendado)
+git switch main
+git pull
+```
+
+O template de PR (`.github/pull_request_template.md`) lembra os itens de validação. Se o CI
+quebrar por problema de ambiente, o ruleset pode ser editado em `Settings → Rules` — não é
+necessário bypass permanente.
+
 ## Build web e instaladores
 
 ```powershell
