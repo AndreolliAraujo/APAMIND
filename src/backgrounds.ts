@@ -120,6 +120,20 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
   },
 ];
 
+/**
+ * Fundo fixo do template Minimalista: neutro, opaco e sem brilho nem textura.
+ * O template usa este valor mesmo que o mapa esteja no tema escuro.
+ */
+export const MINIMAL_BACKGROUND: BackgroundPreset = {
+  name: "Minimalista",
+  baseDark: "#F8FAFC",
+  baseLight: "#F8FAFC",
+  glowA: "rgba(248,250,252,0)",
+  glowB: "rgba(248,250,252,0)",
+  pattern: "none",
+  animated: false,
+};
+
 export function rgbaToHex(value: string): string {
   const match = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
   if (!match) return "#6366f1";

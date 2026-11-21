@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { createMap } from "./core/templates";
 
 const nodeButtons = () => screen.queryAllByRole("button", { name: /^No: /i });
 
@@ -145,5 +146,43 @@ describe("App: modelos de organização", () => {
     // Modelo aplicado: o canvas desenha a espinha como decoração.
     const edges = await screen.findByTestId("edges");
     await waitFor(() => expect(edges.querySelectorAll("line").length).toBeGreaterThan(0));
+  });
+});
+
+describe("App: template Minimalista", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    delete (window as { __TAURI__?: unknown }).__TAURI__;
+    vi.restoreAllMocks();
+  });
+
+  it("renderiza só texto, com tema próprio e sem botão de colapsar", async () => {
+    const map = createMap("Minimal", "Minimalista");
+    localStorage.setItem("apamind.v6", JSON.stringify({ active: map.id, maps: [map] }));
+
+    render(<App />);
+    await screen.findByTestId("canvas");
+
+    const nodes = screen.getAllByRole("button", { name: /^No: /i });
+    expect(nodes).toHaveLength(map.nodes.length);
+
+    // Raiz: tipografia maior, centralizada e na cor de destaque.
+    expect(nodes[0].className).toContain("text-2xl");
+    expect(nodes[0].className).toContain("text-center");
+    expect(nodes[0].style.color).toBe("rgb(79, 70, 229)");
+
+    // Filhos: texto puro em bloco transparente de largura fixa.
+    expect(nodes[1].style.width).toBe("220px");
+    expect(nodes[1].style.color).toBe("rgb(30, 41, 59)");
+    expect(nodes[1].className).not.toContain("border");
+    expect(nodes[1].textContent).toContain("Primeira ideia");
+
+    // Sem botão de expandir/recolher (o círculo da Etapa 4 assume o papel).
+    expect(screen.queryByRole("button", { name: "Colapsar ou expandir ramo" })).toBeNull();
+
+    // Tema fixo do template: fundo neutro e linhas azul-índigo.
+    expect(document.querySelector("main")!.style.backgroundColor).toBe("rgb(248, 250, 252)");
+    const edges = await screen.findByTestId("edges");
+    expect(edges.querySelector("path")!.getAttribute("stroke")).toBe("#4F46E5");
   });
 });

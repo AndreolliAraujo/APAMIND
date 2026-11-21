@@ -120,6 +120,7 @@ describe("createMap", () => {
       "Livre",
       "Kanban",
       "Timeline",
+      "Minimalista",
     ] as const;
     for (const t of templates) {
       const m = createMap("Teste " + t, t);
@@ -137,6 +138,15 @@ describe("createMap", () => {
         expect(typeof n.tone).toBe("number");
       }
     }
+  });
+
+  it("cria o mapa Minimalista com raiz e ramos ligados", () => {
+    const map = createMap("Mini", "Minimalista");
+    expect(map.template).toBe("Minimalista");
+    expect(map.nodes).toHaveLength(5);
+    expect(map.edges).toHaveLength(4);
+    // Todos os ramos saem da raiz (primeiro nó).
+    expect(map.edges.every((edge) => edge.source === map.nodes[0].id)).toBe(true);
   });
 });
 

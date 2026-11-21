@@ -14,7 +14,8 @@ export type TemplateName =
   | "Espinha de Peixe"
   | "Livre"
   | "Kanban"
-  | "Timeline";
+  | "Timeline"
+  | "Minimalista";
 export type AttachType = "url" | "image" | "video" | "audio" | "pdf" | "doc" | "xls" | "map";
 
 export interface CheckItem {
@@ -118,6 +119,7 @@ export const TEMPLATES: TemplateName[] = [
   "Livre",
   "Kanban",
   "Timeline",
+  "Minimalista",
 ];
 
 export const SCHEMA_VERSION = 1;

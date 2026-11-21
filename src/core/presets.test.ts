@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LAYOUT_METRICS } from "./layout";
+import { LAYOUT_METRICS, getTemplateLayout } from "./layout";
 import { PRESETS, presetById, presetDecoration, presetEdgePath, projectorFor, timelineAxisY } from "./presets";
 import { createMap } from "./templates";
 import type { LayoutPresetId, MNode } from "./model";
@@ -124,6 +124,14 @@ describe("presets de organizacao", () => {
     const out = p.layout(map.nodes, map.edges, map.nodes[0].id);
     expectNoOverlap(out, "mindmap-cadeia");
     for (const node of out) expect(Number.isFinite(node.x) && Number.isFinite(node.y)).toBe(true);
+  });
+
+  it("mapeia o template Minimalista para o arranjo do mapa mental", () => {
+    expect(getTemplateLayout("Minimalista")).toBe("mindmap");
+    // Modelos existentes seguem mapeados como antes.
+    expect(getTemplateLayout("Organograma")).toBe("org");
+    expect(getTemplateLayout("Espinha de Peixe")).toBe("fishbone");
+    expect(getTemplateLayout("Livre")).toBe("none");
   });
 
   it("projeta a miniatura do card dentro da caixa", () => {

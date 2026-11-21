@@ -70,12 +70,15 @@ import {
 import { createMapHistory, recordMapHistory, redoMapHistory, undoMapHistory } from "./mapHistory";
 import {
   BACKGROUND_PRESETS,
+  MINIMAL_BACKGROUND,
   PATTERN_CSS,
   PATTERN_SIZES,
   hexToRgba,
   rgbaToHex,
   type BackgroundPreset,
 } from "./backgrounds";
+import { MINIMAL_NODE_WIDTH, MINIMAL_THEME, isMinimalTemplate, minimalNodeClass, minimalNodeColor } from "./ui/minimal";
+import { MinimalNodeBody } from "./components/MinimalNodeBody";
 import { CloseFailureDialog, ColorInput, CtxBtn, EmojiPicker } from "./components/AppControls";
 import { RecoveryDialog } from "./components/RecoveryDialog";
 
@@ -556,11 +559,13 @@ export default function App() {
   const btn = isDark
     ? "border-white/10 bg-white/5 hover:bg-white/10 text-slate-200"
     : "border-black/10 bg-white hover:bg-slate-50 text-slate-700";
-  const edgeClr = isDark ? "rgba(165,180,252,0.4)" : "rgba(79,70,229,0.3)";
-  const edgeHi = isDark ? "rgba(165,180,252,0.8)" : "rgba(79,70,229,0.7)";
   // Modelo ativo: define o desenho das conexões e a decoração de fundo.
   const activePreset = presetById(map.layoutPreset);
   const decorationAxisY = activePreset?.edgeStyle === "timeline" ? timelineAxisY(map.nodes) : 0;
+  // Template Minimalista: ilha visual própria (fundo neutro, texto e linhas fixos).
+  const minimal = isMinimalTemplate(map.template);
+  const edgeClr = minimal ? MINIMAL_THEME.accent : isDark ? "rgba(165,180,252,0.4)" : "rgba(79,70,229,0.3)";
+  const edgeHi = minimal ? MINIMAL_THEME.accentHover : isDark ? "rgba(165,180,252,0.8)" : "rgba(79,70,229,0.7)";
 
   // ── Core helpers ─────────────────────────────────────
   function updMap(fn: (m: MMap) => MMap) {
@@ -896,6 +901,11 @@ export default function App() {
 
   function confirmCreate() {
     const m = createMap(draftTitle.trim() || `Novo mapa ${ws.maps.length + 1}`, draftTpl);
+    // O Minimalista nasce no seu próprio tema: claro, neutro e sem brilhos.
+    if (draftTpl === "Minimalista") {
+      setIsDark(false);
+      setBackground(MINIMAL_BACKGROUND);
+    }
     const newWs = { active: m.id, maps: [...ws.maps, m] };
     setWs(() => newWs);
     void saveWs(newWs).then((result) => {
@@ -1447,32 +1457,40 @@ export default function App() {
   return (
     <main
       className={`min-h-screen overflow-hidden font-sans transition-colors duration-300 ${bg}`}
-      style={{ backgroundColor: isDark ? background.baseDark : background.baseLight }}
+      style={{
+        backgroundColor: minimal ? MINIMAL_THEME.background : isDark ? background.baseDark : background.baseLight,
+      }}
     >
       {/* ── Animated background layer ── */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div
-          className={`absolute inset-0 ${background.animated ? "bg-anim" : ""}`}
-          style={{
-            background:
-              `radial-gradient(ellipse at 20% 20%, ${background.glowA}, transparent 50%), ` +
-              `radial-gradient(ellipse at 80% 75%, ${background.glowB}, transparent 48%), ` +
-              (background.glowC ? `radial-gradient(ellipse at 60% 10%, ${background.glowC}, transparent 44%), ` : "") +
-              (background.glowD ? `radial-gradient(ellipse at 10% 80%, ${background.glowD}, transparent 40%), ` : "") +
-              "transparent",
-          }}
-        />
-        {/* Pattern overlay */}
-        {background.pattern && background.pattern !== "none" && (
+      {!minimal && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div
-            className="absolute inset-0 opacity-[0.14]"
+            className={`absolute inset-0 ${background.animated ? "bg-anim" : ""}`}
             style={{
-              backgroundImage: PATTERN_CSS[background.pattern],
-              backgroundSize: PATTERN_SIZES[background.pattern],
+              background:
+                `radial-gradient(ellipse at 20% 20%, ${background.glowA}, transparent 50%), ` +
+                `radial-gradient(ellipse at 80% 75%, ${background.glowB}, transparent 48%), ` +
+                (background.glowC
+                  ? `radial-gradient(ellipse at 60% 10%, ${background.glowC}, transparent 44%), `
+                  : "") +
+                (background.glowD
+                  ? `radial-gradient(ellipse at 10% 80%, ${background.glowD}, transparent 40%), `
+                  : "") +
+                "transparent",
             }}
           />
-        )}
-      </div>
+          {/* Pattern overlay */}
+          {background.pattern && background.pattern !== "none" && (
+            <div
+              className="absolute inset-0 opacity-[0.14]"
+              style={{
+                backgroundImage: PATTERN_CSS[background.pattern],
+                backgroundSize: PATTERN_SIZES[background.pattern],
+              }}
+            />
+          )}
+        </div>
+      )}
 
       <div className="relative flex min-h-screen">
         {/* ─── SIDEBAR ──────────────────────────────── */}
@@ -1880,7 +1898,7 @@ export default function App() {
             onContextMenu={onCanvasCtx}
           >
             <div
-              className={`absolute inset-0 pointer-events-none ${isDark ? "canvas-grid-dark" : "canvas-grid-light"}`}
+              className={`absolute inset-0 pointer-events-none ${minimal || !isDark ? "canvas-grid-light" : "canvas-grid-dark"}`}
             />
             {map.nodes.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -2005,10 +2023,14 @@ export default function App() {
                 const isEdit = editId === n.id;
                 const nHasKids = hasKids.has(n.id);
                 const isCollapsed = collapsed.has(n.id);
+                const isRootNode = minimal && n.id === map.nodes[0]?.id;
                 return (
                   <div
                     key={n.id}
-                    className={`group absolute flex items-center gap-3 border p-3 shadow-xl transition-shadow select-none
+                    className={
+                      minimal
+                        ? minimalNodeClass(isRootNode, isSel)
+                        : `group absolute flex items-center gap-3 border p-3 shadow-xl transition-shadow select-none
                       ${shapeClass(n.shape)}
                       ${n.shape === "circle" ? "w-36 h-36 flex-col justify-center text-center !gap-1.5 !p-3" : "min-w-[10rem] max-w-[16rem]"}
                       ${
@@ -2017,13 +2039,16 @@ export default function App() {
                           : isDark
                             ? "border-white/12 bg-slate-900/80 shadow-black/20 hover:border-white/25 hover:shadow-lg"
                             : "border-slate-200 bg-white/90 shadow-slate-200/60 hover:border-slate-300 hover:shadow-lg"
-                      }`}
+                      }`
+                    }
                     style={{
                       left: n.x,
                       top: n.y,
                       transform: `translate(-50%, -50%) scale(${n.scale ?? 1})`,
                       cursor: cursor === "grabbing" ? "grabbing" : "grab",
-                      ...(n.borderColor ? { borderColor: n.borderColor } : {}),
+                      ...(minimal ? { color: minimalNodeColor(isRootNode) } : {}),
+                      ...(minimal && !isRootNode ? { width: MINIMAL_NODE_WIDTH } : {}),
+                      ...(!minimal && n.borderColor ? { borderColor: n.borderColor } : {}),
                     }}
                     tabIndex={0}
                     role="button"
@@ -2063,75 +2088,91 @@ export default function App() {
                       }
                     }}
                   >
-                    <div
-                      className={`${n.shape === "circle" ? "h-8 w-8" : "h-10 w-10"} shrink-0 rounded-xl ${iconBg(n.tone, isDark)} shadow-md flex items-center justify-center text-lg emoji`}
-                    >
-                      {n.icon || ""}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      {isEdit && editField === "title" ? (
-                        <input
-                          autoFocus
-                          value={n.title}
-                          onChange={(ev) => updateNodeFn(n.id, { title: ev.target.value })}
-                          onBlur={() => setEditId(null)}
-                          onKeyDown={(ev) => {
-                            if (ev.key === "Enter" || ev.key === "Escape") setEditId(null);
-                          }}
-                          onClick={(ev) => ev.stopPropagation()}
-                          className={`w-full rounded-lg border px-2 py-1 text-sm font-semibold outline-none ${inp}`}
-                        />
-                      ) : (
-                        <div className="text-sm font-semibold truncate">{n.title}</div>
-                      )}
-                      {n.note && !isEdit && (
-                        <div className={`text-xs mt-0.5 truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                          {n.note}
+                    {minimal ? (
+                      <MinimalNodeBody
+                        node={n}
+                        isRoot={isRootNode}
+                        editing={isEdit && editField === "title"}
+                        onChangeTitle={(value) => updateNodeFn(n.id, { title: value })}
+                        onEndEdit={() => setEditId(null)}
+                      />
+                    ) : (
+                      <>
+                        <div
+                          className={`${n.shape === "circle" ? "h-8 w-8" : "h-10 w-10"} shrink-0 rounded-xl ${iconBg(n.tone, isDark)} shadow-md flex items-center justify-center text-lg emoji`}
+                        >
+                          {n.icon || ""}
                         </div>
-                      )}
-                      {n.checklist && n.checklist.length > 0 && !isEdit && (
-                        <div className="mt-1 space-y-0.5">
-                          {n.checklist.slice(0, 2).map((c, i) => (
-                            <div key={i} className="flex items-center gap-1 text-[10px]">
-                              <span className={c.done ? "text-emerald-400" : "text-slate-500"}>
-                                {c.done ? "☑" : "☐"}
-                              </span>
-                              <span className={`truncate ${c.done ? "line-through opacity-50" : ""}`}>{c.text}</span>
+                        <div className="min-w-0 flex-1">
+                          {isEdit && editField === "title" ? (
+                            <input
+                              autoFocus
+                              value={n.title}
+                              onChange={(ev) => updateNodeFn(n.id, { title: ev.target.value })}
+                              onBlur={() => setEditId(null)}
+                              onKeyDown={(ev) => {
+                                if (ev.key === "Enter" || ev.key === "Escape") setEditId(null);
+                              }}
+                              onClick={(ev) => ev.stopPropagation()}
+                              className={`w-full rounded-lg border px-2 py-1 text-sm font-semibold outline-none ${inp}`}
+                            />
+                          ) : (
+                            <div className="text-sm font-semibold truncate">{n.title}</div>
+                          )}
+                          {n.note && !isEdit && (
+                            <div className={`text-xs mt-0.5 truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                              {n.note}
                             </div>
-                          ))}
-                          {n.checklist.length > 2 && (
-                            <span className="text-[10px] text-slate-500">+{n.checklist.length - 2} itens</span>
+                          )}
+                          {n.checklist && n.checklist.length > 0 && !isEdit && (
+                            <div className="mt-1 space-y-0.5">
+                              {n.checklist.slice(0, 2).map((c, i) => (
+                                <div key={i} className="flex items-center gap-1 text-[10px]">
+                                  <span className={c.done ? "text-emerald-400" : "text-slate-500"}>
+                                    {c.done ? "☑" : "☐"}
+                                  </span>
+                                  <span className={`truncate ${c.done ? "line-through opacity-50" : ""}`}>
+                                    {c.text}
+                                  </span>
+                                </div>
+                              ))}
+                              {n.checklist.length > 2 && (
+                                <span className="text-[10px] text-slate-500">+{n.checklist.length - 2} itens</span>
+                              )}
+                            </div>
+                          )}
+                          {n.attachments && n.attachments.length > 0 && !isEdit && (
+                            <button
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                setNodeAttachModal(n.id);
+                              }}
+                              className={`mt-1 flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border transition ${isDark ? "border-white/10 bg-white/5 hover:bg-white/10" : "border-black/5 bg-slate-50 hover:bg-slate-100"}`}
+                              title={`${n.attachments.length} anexo(s). Clique para ver/abrir.`}
+                            >
+                              <span className="emoji">{ATTACH_ICONS[n.attachments[0].type]}</span>
+                              {n.attachments.length > 1 && (
+                                <span className="opacity-70">+{n.attachments.length - 1}</span>
+                              )}
+                            </button>
                           )}
                         </div>
-                      )}
-                      {n.attachments && n.attachments.length > 0 && !isEdit && (
-                        <button
-                          onClick={(ev) => {
-                            ev.stopPropagation();
-                            setNodeAttachModal(n.id);
-                          }}
-                          className={`mt-1 flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border transition ${isDark ? "border-white/10 bg-white/5 hover:bg-white/10" : "border-black/5 bg-slate-50 hover:bg-slate-100"}`}
-                          title={`${n.attachments.length} anexo(s). Clique para ver/abrir.`}
-                        >
-                          <span className="emoji">{ATTACH_ICONS[n.attachments[0].type]}</span>
-                          {n.attachments.length > 1 && <span className="opacity-70">+{n.attachments.length - 1}</span>}
-                        </button>
-                      )}
-                    </div>
 
-                    {/* Collapse toggle (inline) */}
-                    {nHasKids && (
-                      <button
-                        onClick={(ev) => {
-                          ev.stopPropagation();
-                          toggleCollapse(n.id);
-                        }}
-                        className={`shrink-0 flex items-center justify-center w-5 h-5 rounded-full text-[12px] font-bold z-20 transition-colors
+                        {/* Collapse toggle (inline) */}
+                        {nHasKids && (
+                          <button
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              toggleCollapse(n.id);
+                            }}
+                            className={`shrink-0 flex items-center justify-center w-5 h-5 rounded-full text-[12px] font-bold z-20 transition-colors
                           ${isDark ? "bg-white/10 hover:bg-white/20 text-white" : "bg-black/5 hover:bg-black/10 text-slate-700"}`}
-                        aria-label="Colapsar ou expandir ramo"
-                      >
-                        {isCollapsed ? "+" : "−"}
-                      </button>
+                            aria-label="Colapsar ou expandir ramo"
+                          >
+                            {isCollapsed ? "+" : "−"}
+                          </button>
+                        )}
+                      </>
                     )}
 
                     {/* Connection handles */}

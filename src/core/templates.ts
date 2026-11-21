@@ -233,6 +233,19 @@ function tplTimeline(t: string) {
   return { nodes: ns, edges: ns.slice(0, -1).map((_, i) => mkEdge(ns[i].id, ns[i + 1].id)) };
 }
 
+function tplMinimalista(t: string) {
+  // Começo enxuto: raiz central e quatro ramos de texto puro. O visual do
+  // template vive em src/ui/minimal.ts; aqui só nascem nós e conexões.
+  const c = mkNode(t, "Comece por uma ideia", 500, 380, 0, "capsule");
+  const ns = [
+    mkNode("Primeira ideia", "Nota curta de apoio", 860, 300, 1, "card"),
+    mkNode("Segunda ideia", "", 860, 480, 2, "card"),
+    mkNode("Ramo à esquerda", "", 140, 300, 3, "card"),
+    mkNode("Outro ramo", "", 140, 480, 4, "card"),
+  ];
+  return { nodes: [c, ...ns], edges: ns.map((n) => mkEdge(c.id, n.id)) };
+}
+
 function buildTpl(title: string, tpl: TemplateName) {
   switch (tpl) {
     case "Modelo A":
@@ -259,6 +272,8 @@ function buildTpl(title: string, tpl: TemplateName) {
       return tplKanban(title);
     case "Timeline":
       return tplTimeline(title);
+    case "Minimalista":
+      return tplMinimalista(title);
     default:
       return tplModeloA(title);
   }

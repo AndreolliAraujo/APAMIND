@@ -179,6 +179,15 @@ describe("importação e exportação", () => {
     expect(validateMMap(broken).ok).toBe(false);
   });
 
+  it("aceita e preserva o template Minimalista na importação", async () => {
+    const minimal = createMap("Minimal", "Minimalista");
+    const imported = await importFile(file("minimal.apamind.json", serializeMapJSON(minimal)));
+    expect(imported).toMatchObject({ ok: true, kind: "map" });
+    if (!imported.ok || imported.kind !== "map") return;
+    expect(imported.map.template).toBe("Minimalista");
+    expect(imported.map.nodes).toHaveLength(5);
+  });
+
   it("preserva o modelo de organização aplicado e descarta valor desconhecido", async () => {
     const organised = { ...sampleMap(), layoutPreset: "timeline" as const };
     const imported = await importFile(file("preset.apamind.json", serializeMapJSON(organised)));
