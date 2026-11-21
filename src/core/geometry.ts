@@ -56,3 +56,18 @@ export function edgePath(x1: number, y1: number, x2: number, y2: number, routing
   }
   return d;
 }
+
+// ── Geometrias próprias de alguns modelos ─────────────────────────
+// Ficam fora de MEdge.routing de propósito: são o desenho do modelo, não uma
+// preferência da aresta. Quando o usuário escolhe uma geometria no menu da
+// aresta, ela passa a valer e vence o modelo.
+
+/** Espinha de peixe: corre na altura da origem até o x do destino e desce/sobe. */
+export function fishboneEdgePath(x1: number, y1: number, x2: number, y2: number) {
+  return `M ${x1} ${y1} L ${x2} ${y1} L ${x2} ${y2}`;
+}
+
+/** Linha do tempo: desce até o eixo, corre por ele e sobe/desce até o destino. */
+export function timelineEdgePath(x1: number, y1: number, x2: number, y2: number, axisY: number) {
+  return `M ${x1} ${y1} L ${x1} ${axisY} L ${x2} ${axisY} L ${x2} ${y2}`;
+}

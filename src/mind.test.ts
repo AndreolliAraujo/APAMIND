@@ -440,6 +440,28 @@ describe("loadWs / saveWs", () => {
     expect(ws.maps[0].nodes[0].note).toBe("");
     expect(ws.maps[0].nodes[0].shape).toBe("card");
   });
+
+  it("migrateWorkspace preserva o modelo de organizacao aplicado", () => {
+    localStorage.clear();
+    localStorage.setItem(
+      "apamind.v6",
+      JSON.stringify({
+        active: "m2",
+        maps: [
+          {
+            id: "m2",
+            title: "Mapa organizado",
+            template: "Espinha de Peixe",
+            ts: "2024-01-01T00:00:00.000Z",
+            layoutPreset: "fishbone",
+            nodes: [{ id: "n1", title: "Raiz", x: 0, y: 0, tone: 0, shape: "card", note: "" }],
+            edges: [],
+          },
+        ],
+      }),
+    );
+    expect(loadWs().maps[0].layoutPreset).toBe("fishbone");
+  });
 });
 
 // ── saveWs em QuotaExceeded ─────────────────────────────────────────
@@ -491,7 +513,7 @@ describe("autoLayoutRadial", () => {
     expect(Number.isFinite(out[0].y)).toBe(true);
   });
 
-  it("distribui filhos em circulo", () => {
+  it("distribui filhos em um anel do mesmo raio", () => {
     const root = mkNode("Raiz", "", 0, 0, 0, "capsule");
     const k1 = mkNode("A", "", 0, 0, 1, "card");
     const k2 = mkNode("B", "", 0, 0, 2, "card");
@@ -499,12 +521,13 @@ describe("autoLayoutRadial", () => {
     const edges = [mkEdge(root.id, k1.id), mkEdge(root.id, k2.id), mkEdge(root.id, k3.id)];
     const out = autoLayoutRadial([root, k1, k2, k3], edges, root.id);
     expect(out).toHaveLength(4);
-    // Distancia radial dos Kids deve ser ~280 de (500, 380)
-    for (let i = 1; i < 4; i++) {
-      const dx = out[i].x - 500;
-      const dy = out[i].y - 380;
-      expect(Math.sqrt(dx * dx + dy * dy)).toBeCloseTo(280, -2);
+    // Todos os filhos ficam no mesmo anel, longe o bastante para nao se sobrepor.
+    const radii = out.slice(1).map((n) => Math.hypot(n.x - 500, n.y - 380));
+    for (const radius of radii) {
+      expect(radius).toBeCloseTo(radii[0], 6);
+      expect(radius).toBeGreaterThanOrEqual(360);
     }
+    expect(new Set(out.slice(1).map((n) => `${n.x.toFixed(1)}:${n.y.toFixed(1)}`)).size).toBe(3);
   });
 });
 

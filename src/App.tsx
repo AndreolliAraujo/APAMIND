@@ -12,6 +12,7 @@ import {
   type Attachment,
   type EdgeRouting,
   type EdgeStyle,
+  type LayoutPresetId,
   type Workspace,
   TEMPLATES,
   ATTACH_TYPES,
@@ -25,17 +26,9 @@ import { collectBrokenMapLinks, countMapReferences, normalizeReferenceKey } from
 import { edgePath } from "./core/geometry";
 import { TONES, TONE_HEX, SHAPES, shapeClass } from "./ui/theme";
 import { createMap } from "./core/templates";
-import {
-  autoLayoutTree,
-  autoLayoutRadial,
-  autoLayoutFlow,
-  autoLayoutOrgChart,
-  autoLayoutFishbone,
-  autoLayoutMindMap,
-  autoLayoutTimeline,
-  autoLayoutGrid,
-  getTemplateLayout,
-} from "./core/layout";
+import { getTemplateLayout } from "./core/layout";
+import { PRESETS, presetById, presetDecoration, presetEdgePath, timelineAxisY } from "./core/presets";
+import { PresetPreview } from "./components/PresetPreview";
 import {
   loadWs,
   saveWs,
@@ -566,6 +559,9 @@ export default function App() {
     : "border-black/10 bg-white hover:bg-slate-50 text-slate-700";
   const edgeClr = isDark ? "rgba(165,180,252,0.4)" : "rgba(79,70,229,0.3)";
   const edgeHi = isDark ? "rgba(165,180,252,0.8)" : "rgba(79,70,229,0.7)";
+  // Modelo ativo: define o desenho das conexões e a decoração de fundo.
+  const activePreset = presetById(map.layoutPreset);
+  const decorationAxisY = activePreset?.edgeStyle === "timeline" ? timelineAxisY(map.nodes) : 0;
 
   // ── Core helpers ─────────────────────────────────────
   function updMap(fn: (m: MMap) => MMap) {
@@ -647,29 +643,17 @@ export default function App() {
   }
 
   // ── Auto layout ──────────────────────────────────────
-  type LayoutMode = "tree" | "radial" | "flow" | "org" | "fishbone" | "mindmap" | "timeline" | "grid";
-
-  function applyLayout(mode: LayoutMode) {
+  // Aplicar um modelo reproduz a figura do card: posições + geometria das
+  // conexões. Modelos com desenho próprio (espinha/eixo) deixam `routing`
+  // indefinido para o canvas desenhar, preservando o override por aresta.
+  function applyPreset(id: LayoutPresetId) {
+    const preset = presetById(id);
+    if (!preset) return;
     pushUndo();
     updMap((m) => {
-      const root = m.nodes[0]?.id;
-      const nodes =
-        mode === "tree"
-          ? autoLayoutTree(m.nodes, m.edges, root)
-          : mode === "org"
-            ? autoLayoutOrgChart(m.nodes, m.edges, root)
-            : mode === "fishbone"
-              ? autoLayoutFishbone(m.nodes, m.edges, root)
-              : mode === "radial"
-                ? autoLayoutRadial(m.nodes, m.edges, root)
-                : mode === "mindmap"
-                  ? autoLayoutMindMap(m.nodes, m.edges, root)
-                  : mode === "timeline"
-                    ? autoLayoutTimeline(m.nodes, m.edges)
-                    : mode === "grid"
-                      ? autoLayoutGrid(m.nodes)
-                      : autoLayoutFlow(m.nodes, m.edges);
-      return { ...m, nodes };
+      const nodes = preset.layout(m.nodes, m.edges, m.nodes[0]?.id);
+      const edges = m.edges.map((edge) => ({ ...edge, routing: preset.routing ?? undefined }));
+      return { ...m, nodes, edges, layoutPreset: id };
     });
     setShowLayoutModal(false);
     requestAnimationFrame(fitView);
@@ -677,7 +661,7 @@ export default function App() {
 
   function autoOrganize() {
     const tpl = getTemplateLayout(map.template);
-    applyLayout(tpl === "none" ? "mindmap" : tpl);
+    applyPreset(tpl === "none" ? "mindmap" : tpl);
   }
 
   // ── Focus on node with fade transition ───────────────
@@ -1948,13 +1932,30 @@ export default function App() {
                 data-testid="edges"
                 style={{ position: "absolute", left: 0, top: 0, width: 1, height: 1, overflow: "visible" }}
               >
+                {/* Decoração do modelo (espinha da espinha de peixe, eixo da linha do tempo) */}
+                {presetDecoration(activePreset, map.nodes).map((line, i) => (
+                  <line
+                    key={`decoration-${i}`}
+                    x1={line.x1}
+                    y1={line.y1}
+                    x2={line.x2}
+                    y2={line.y2}
+                    stroke={edgeClr}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                  />
+                ))}
                 {map.edges.map((edge) => {
                   const s = nodeMap.get(edge.source);
                   const t = nodeMap.get(edge.target);
                   if (!s || !t) return null;
                   const hidden = collapsed.has(edge.source) || !isVisible(s.id) || !isVisible(t.id);
                   if (hidden) return null;
-                  const d = edgePath(s.x, s.y, t.x, t.y, edge.routing);
+                  const d = edge.routing
+                    ? edgePath(s.x, s.y, t.x, t.y, edge.routing)
+                    : activePreset
+                      ? presetEdgePath(activePreset, s.x, s.y, t.x, t.y, decorationAxisY)
+                      : edgePath(s.x, s.y, t.x, t.y);
                   const hi = hoveredEdge === edge.id;
                   const dash = edge.style === "dashed" ? "8 5" : edge.style === "dotted" ? "3 4" : undefined;
                   return (
@@ -3497,276 +3498,23 @@ export default function App() {
             </div>
 
             <div className="p-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-              {[
-                {
-                  mode: "mindmap" as const,
-                  icon: "🧠",
-                  label: "Mapa Mental",
-                  desc: "Ramos equilibrados à esquerda e à direita do nó raiz",
-                  preview: (
-                    <svg viewBox="0 0 120 80" className="w-full h-14">
-                      <circle cx="60" cy="40" r="10" fill="currentColor" opacity=".7" />
-                      {[
-                        [22, 20],
-                        [22, 40],
-                        [22, 60],
-                        [98, 20],
-                        [98, 40],
-                        [98, 60],
-                      ].map(([x, y], i) => (
-                        <g key={i}>
-                          <line x1="60" y1="40" x2={x} y2={y} stroke="currentColor" strokeWidth="1.5" opacity=".4" />
-                          <circle cx={x} cy={y} r="6" fill="currentColor" opacity=".5" />
-                        </g>
-                      ))}
-                    </svg>
-                  ),
-                },
-                {
-                  mode: "org" as const,
-                  icon: "🏢",
-                  label: "Organograma",
-                  desc: "Hierarquia de cima para baixo, nível por nível",
-                  preview: (
-                    <svg viewBox="0 0 120 80" className="w-full h-14">
-                      <circle cx="60" cy="12" r="8" fill="currentColor" opacity=".7" />
-                      {[
-                        [30, 38],
-                        [60, 38],
-                        [90, 38],
-                      ].map(([x, y], i) => (
-                        <g key={i}>
-                          <line
-                            x1="60"
-                            y1="20"
-                            x2={x}
-                            y2={y - 8}
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                            opacity=".4"
-                          />
-                          <circle cx={x} cy={y} r="6" fill="currentColor" opacity=".55" />
-                        </g>
-                      ))}
-                      {[
-                        [18, 64],
-                        [42, 64],
-                        [74, 64],
-                        [98, 64],
-                      ].map(([x, y], i) => (
-                        <g key={i}>
-                          <line
-                            x1={i < 2 ? 30 : 90}
-                            y1="44"
-                            x2={x}
-                            y2={y - 6}
-                            stroke="currentColor"
-                            strokeWidth="1.2"
-                            opacity=".35"
-                          />
-                          <rect x={x - 7} y={y - 6} width="14" height="10" rx="3" fill="currentColor" opacity=".45" />
-                        </g>
-                      ))}
-                    </svg>
-                  ),
-                },
-                {
-                  mode: "tree" as const,
-                  icon: "🌳",
-                  label: "Árvore",
-                  desc: "Cresce da esquerda para a direita em ramificações",
-                  preview: (
-                    <svg viewBox="0 0 120 80" className="w-full h-14">
-                      <circle cx="16" cy="40" r="8" fill="currentColor" opacity=".7" />
-                      {[
-                        [50, 20],
-                        [50, 60],
-                      ].map(([x, y], i) => (
-                        <g key={i}>
-                          <line x1="24" y1="40" x2={x} y2={y} stroke="currentColor" strokeWidth="1.5" opacity=".4" />
-                          <circle cx={x} cy={y} r="6" fill="currentColor" opacity=".55" />
-                        </g>
-                      ))}
-                      {[
-                        [84, 12],
-                        [84, 28],
-                        [84, 52],
-                        [84, 68],
-                      ].map(([x, y], i) => (
-                        <g key={i}>
-                          <line
-                            x1="56"
-                            y1={i < 2 ? 20 : 60}
-                            x2={x}
-                            y2={y}
-                            stroke="currentColor"
-                            strokeWidth="1.2"
-                            opacity=".35"
-                          />
-                          <circle cx={x} cy={y} r="5" fill="currentColor" opacity=".45" />
-                        </g>
-                      ))}
-                    </svg>
-                  ),
-                },
-                {
-                  mode: "radial" as const,
-                  icon: "🎯",
-                  label: "Radial",
-                  desc: "Filhos distribuídos em círculo ao redor do centro",
-                  preview: (
-                    <svg viewBox="0 0 120 80" className="w-full h-14">
-                      <circle cx="60" cy="40" r="10" fill="currentColor" opacity=".7" />
-                      {Array.from({ length: 6 }, (_, i) => {
-                        const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
-                        const x = 60 + Math.cos(a) * 28,
-                          y = 40 + Math.sin(a) * 24;
-                        return (
-                          <g key={i}>
-                            <line x1="60" y1="40" x2={x} y2={y} stroke="currentColor" strokeWidth="1.5" opacity=".4" />
-                            <circle cx={x} cy={y} r="5.5" fill="currentColor" opacity=".5" />
-                          </g>
-                        );
-                      })}
-                    </svg>
-                  ),
-                },
-                {
-                  mode: "flow" as const,
-                  icon: "➡️",
-                  label: "Fluxo",
-                  desc: "Cadeia horizontal da esquerda para a direita",
-                  preview: (
-                    <svg viewBox="0 0 120 80" className="w-full h-14">
-                      {[14, 38, 62, 86, 110].map((x, i, arr) => (
-                        <g key={i}>
-                          {i < arr.length - 1 && (
-                            <line
-                              x1={x + 8}
-                              y1="40"
-                              x2={arr[i + 1] - 8}
-                              y2="40"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                              opacity=".4"
-                            />
-                          )}
-                          <rect
-                            x={x - 8}
-                            y="32"
-                            width="16"
-                            height="16"
-                            rx="4"
-                            fill="currentColor"
-                            opacity={i === 0 ? 0.7 : 0.5}
-                          />
-                        </g>
-                      ))}
-                    </svg>
-                  ),
-                },
-                {
-                  mode: "fishbone" as const,
-                  icon: "🐟",
-                  label: "Espinha de Peixe",
-                  desc: "Diagrama de causa-efeito (Ishikawa)",
-                  preview: (
-                    <svg viewBox="0 0 120 80" className="w-full h-14">
-                      <line x1="10" y1="40" x2="110" y2="40" stroke="currentColor" strokeWidth="2" opacity=".5" />
-                      <circle cx="110" cy="40" r="8" fill="currentColor" opacity=".7" />
-                      {[
-                        [30, 18],
-                        [50, 18],
-                        [70, 18],
-                        [30, 62],
-                        [50, 62],
-                        [70, 62],
-                      ].map(([x, y], i) => (
-                        <g key={i}>
-                          <line x1={x} y1={y} x2={x} y2="40" stroke="currentColor" strokeWidth="1.5" opacity=".4" />
-                          <circle cx={x} cy={y} r="5" fill="currentColor" opacity=".5" />
-                        </g>
-                      ))}
-                    </svg>
-                  ),
-                },
-                {
-                  mode: "timeline" as const,
-                  icon: "📅",
-                  label: "Linha do Tempo",
-                  desc: "Sequência horizontal com marcos alternados acima/abaixo",
-                  preview: (
-                    <svg viewBox="0 0 120 80" className="w-full h-14">
-                      <line x1="10" y1="40" x2="110" y2="40" stroke="currentColor" strokeWidth="1.5" opacity=".3" />
-                      {[14, 38, 62, 86, 110].map((x, i) => (
-                        <g key={i}>
-                          <line
-                            x1={x}
-                            y1="40"
-                            x2={x}
-                            y2={i % 2 === 0 ? 20 : 60}
-                            stroke="currentColor"
-                            strokeWidth="1.2"
-                            opacity=".4"
-                          />
-                          <circle cx={x} cy={i % 2 === 0 ? 16 : 64} r="6" fill="currentColor" opacity=".6" />
-                          <circle cx={x} cy="40" r="3" fill="currentColor" opacity=".8" />
-                        </g>
-                      ))}
-                    </svg>
-                  ),
-                },
-                {
-                  mode: "grid" as const,
-                  icon: "⊞",
-                  label: "Grade",
-                  desc: "Todos os nós em grade uniforme, ideal para coleções",
-                  preview: (
-                    <svg viewBox="0 0 120 80" className="w-full h-14">
-                      {[
-                        [16, 16],
-                        [44, 16],
-                        [72, 16],
-                        [100, 16],
-                        [16, 44],
-                        [44, 44],
-                        [72, 44],
-                        [100, 44],
-                        [16, 72],
-                        [44, 72],
-                        [72, 72],
-                      ].map(([x, y], i) => (
-                        <rect
-                          key={i}
-                          x={x - 10}
-                          y={y - 8}
-                          width="20"
-                          height="14"
-                          rx="3"
-                          fill="currentColor"
-                          opacity={i === 0 ? 0.75 : 0.4}
-                        />
-                      ))}
-                    </svg>
-                  ),
-                },
-              ].map(({ mode, icon, label, desc, preview }) => (
+              {PRESETS.map((preset) => (
                 <button
-                  key={mode}
-                  onClick={() => applyLayout(mode)}
+                  key={preset.id}
+                  onClick={() => applyPreset(preset.id)}
                   className={`group rounded-2xl border p-3 text-left transition-all hover:border-indigo-400/60 hover:scale-[1.02] active:scale-[0.98] ${isDark ? "border-white/10 bg-white/[.03] hover:bg-indigo-500/8" : "border-black/10 bg-slate-50 hover:bg-indigo-50"}`}
                 >
                   <div
                     className={`${isDark ? "text-indigo-300/70 group-hover:text-indigo-300" : "text-indigo-600/70 group-hover:text-indigo-600"} transition-colors`}
                   >
-                    {preview}
+                    <PresetPreview preset={preset} />
                   </div>
                   <div className="mt-2 flex items-center gap-1.5">
-                    <span className="text-base">{icon}</span>
-                    <span className="text-sm font-semibold">{label}</span>
+                    <span className="text-base">{preset.icon}</span>
+                    <span className="text-sm font-semibold">{preset.label}</span>
                   </div>
                   <p className={`text-[11px] mt-1 leading-snug ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                    {desc}
+                    {preset.desc}
                   </p>
                 </button>
               ))}
@@ -3778,6 +3526,7 @@ export default function App() {
             >
               <p className={`text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                 Modelo atual do mapa: <span className="font-semibold text-indigo-400">{map.template}</span>
+                {activePreset ? <> · organizado como {activePreset.label}</> : null}
               </p>
               <button
                 onClick={autoOrganize}

@@ -179,6 +179,19 @@ describe("importação e exportação", () => {
     expect(validateMMap(broken).ok).toBe(false);
   });
 
+  it("preserva o modelo de organização aplicado e descarta valor desconhecido", async () => {
+    const organised = { ...sampleMap(), layoutPreset: "timeline" as const };
+    const imported = await importFile(file("preset.apamind.json", serializeMapJSON(organised)));
+    expect(imported).toMatchObject({ ok: true, kind: "map" });
+    if (!imported.ok || imported.kind !== "map") return;
+    expect(imported.map.layoutPreset).toBe("timeline");
+
+    const unknown = { ...sampleMap(), layoutPreset: "zigzag" } as unknown as Parameters<typeof validateMMap>[0];
+    const validated = validateMMap(unknown);
+    expect(validated.ok).toBe(true);
+    if (validated.ok) expect(validated.map.layoutPreset).toBeUndefined();
+  });
+
   it("migrates the deprecated links field into url attachments", () => {
     const legacy = {
       ...sampleMap(),

@@ -118,3 +118,32 @@ describe("App: geometria das conexões", () => {
     });
   });
 });
+
+describe("App: modelos de organização", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    delete (window as { __TAURI__?: unknown }).__TAURI__;
+    vi.restoreAllMocks();
+  });
+
+  it("mostra os modelos com miniatura gerada e aplica o escolhido", async () => {
+    render(<App />);
+    await screen.findByTestId("canvas");
+
+    fireEvent.click(screen.getByRole("button", { name: /Organizar/ }));
+    const dialog = screen.getByRole("dialog");
+    const cards = within(dialog)
+      .getAllByRole("button")
+      .filter((button) => /Organograma|Espinha de Peixe|Linha do Tempo|Radial/.test(button.textContent ?? ""));
+    expect(cards).toHaveLength(4);
+    // A miniatura vem do próprio preset, não é um desenho avulso.
+    for (const card of cards) expect(card.querySelector("svg")).not.toBeNull();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /Espinha de Peixe/ }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    // Modelo aplicado: o canvas desenha a espinha como decoração.
+    const edges = await screen.findByTestId("edges");
+    await waitFor(() => expect(edges.querySelectorAll("line").length).toBeGreaterThan(0));
+  });
+});

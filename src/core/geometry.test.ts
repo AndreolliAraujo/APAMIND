@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { edgePath, edgeSegments } from "./geometry";
+import { edgePath, edgeSegments, fishboneEdgePath, timelineEdgePath } from "./geometry";
 
 describe("edgePath", () => {
   it("preserva o desenho de curva historico como default", () => {
@@ -50,5 +50,15 @@ describe("edgeSegments", () => {
       }
       expect(edgePath(10, 20, 210, 90, routing)).toBe(rebuilt);
     }
+  });
+});
+
+describe("geometrias próprias dos modelos", () => {
+  it("espinha de peixe corre na altura da origem e desce até o destino", () => {
+    expect(fishboneEdgePath(100, 200, 40, 380)).toBe("M 100 200 L 40 200 L 40 380");
+  });
+
+  it("linha do tempo desce até o eixo, corre por ele e sobe até o destino", () => {
+    expect(timelineEdgePath(100, 220, 300, 540, 380)).toBe("M 100 220 L 100 380 L 300 380 L 300 540");
   });
 });

@@ -75,6 +75,10 @@ export type EdgeRouting = "curve" | "straight" | "ortho";
 
 export const EDGE_ROUTINGS: EdgeRouting[] = ["curve", "straight", "ortho"];
 
+// Modelos de organização do canvas (cards do "Organizar layout").
+export const LAYOUT_PRESET_IDS = ["mindmap", "org", "tree", "radial", "flow", "fishbone", "timeline", "grid"] as const;
+export type LayoutPresetId = (typeof LAYOUT_PRESET_IDS)[number];
+
 export interface MEdge {
   id: string;
   source: string;
@@ -89,6 +93,8 @@ export interface MMap {
   template: TemplateName;
   ts: string;
   schemaVersion?: number;
+  // Último modelo de organização aplicado (define desenho das conexões e decoração).
+  layoutPreset?: LayoutPresetId;
   nodes: MNode[];
   edges: MEdge[];
   collapsedIds?: string[];

@@ -51,6 +51,7 @@ export function migrateWorkspace(ws: Workspace): Workspace {
     template: m.template || "Livre",
     ts: m.ts || new Date().toISOString(),
     schemaVersion: SCHEMA_VERSION,
+    ...(m.layoutPreset ? { layoutPreset: m.layoutPreset } : {}),
     nodes: (m.nodes || []).map((n) => ({
       ...n,
       // Campos opcionais adicionados em versoes posteriores

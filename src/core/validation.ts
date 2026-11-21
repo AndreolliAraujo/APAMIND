@@ -1,7 +1,7 @@
 // Validação do formato de mapa recebido por importação.
 
-import type { AttachType, EdgeRouting, EdgeStyle, MMap, NodeShape, Workspace } from "./model";
-import { ATTACH_TYPES, EDGE_ROUTINGS, TEMPLATES, legacyLinksToAttachments, uid } from "./model";
+import type { AttachType, EdgeRouting, EdgeStyle, LayoutPresetId, MMap, NodeShape, Workspace } from "./model";
+import { ATTACH_TYPES, EDGE_ROUTINGS, LAYOUT_PRESET_IDS, TEMPLATES, legacyLinksToAttachments, uid } from "./model";
 
 // ── Validador central de mapa ─────────────────────────────────────
 const SHAPES = new Set<NodeShape>(["card", "rect", "circle", "capsule", "hex"]);
@@ -113,6 +113,9 @@ export function validateMMap(raw: unknown): { ok: true; map: MMap } | { ok: fals
     ts: isNonEmptyString(r.ts) ? (r.ts as string) : new Date().toISOString(),
     ...(typeof r.schemaVersion === "number" && Number.isFinite(r.schemaVersion)
       ? { schemaVersion: r.schemaVersion }
+      : {}),
+    ...(typeof r.layoutPreset === "string" && LAYOUT_PRESET_IDS.includes(r.layoutPreset as LayoutPresetId)
+      ? { layoutPreset: r.layoutPreset as LayoutPresetId }
       : {}),
     ...(Array.isArray(r.collapsedIds)
       ? { collapsedIds: r.collapsedIds.flatMap((id) => (idRemap.has(id) ? [idRemap.get(id)!] : [])) }
