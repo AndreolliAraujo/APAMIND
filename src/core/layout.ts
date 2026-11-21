@@ -1,6 +1,6 @@
 // Algoritmos de layout automático do canvas.
 
-import type { LayoutPresetId, MEdge, MNode, TemplateName } from "./model";
+import type { MEdge, MNode } from "./model";
 import { childrenOf, sanitizeLog } from "./model";
 
 // ── Layout algorithms ─────────────────────────────────────────────
@@ -115,18 +115,6 @@ export function autoLayoutOrgChart(nodes: MNode[], edges: MEdge[], rootId?: stri
 
 export function autoLayoutTree(nodes: MNode[], edges: MEdge[], rootId?: string) {
   return autoLayoutHierarchical(nodes, edges, rootId, "horizontal");
-}
-
-export function getTemplateLayout(tpl: TemplateName): LayoutPresetId | "none" {
-  if (tpl === "Organograma" || tpl === "Hierarquico") return "org";
-  if (tpl === "Arvore" || tpl === "Arvore Direita" || tpl === "Arvore Esquerda") return "tree";
-  if (tpl === "Radial") return "radial";
-  if (tpl === "Fluxograma") return "flow";
-  if (tpl === "Espinha de Peixe") return "fishbone";
-  if (tpl === "Modelo A") return "mindmap";
-  if (tpl === "Timeline") return "timeline";
-  if (tpl === "Kanban") return "grid";
-  return "none";
 }
 
 // ── Utilitários compartilhados pelos modelos ──────────────────────

@@ -26,7 +26,6 @@ import { collectBrokenMapLinks, countMapReferences, normalizeReferenceKey } from
 import { edgePath } from "./core/geometry";
 import { TONES, TONE_HEX, SHAPES, shapeClass } from "./ui/theme";
 import { createMap } from "./core/templates";
-import { getTemplateLayout } from "./core/layout";
 import { PRESETS, presetById, presetDecoration, presetEdgePath, timelineAxisY } from "./core/presets";
 import { PresetPreview } from "./components/PresetPreview";
 import {
@@ -657,11 +656,6 @@ export default function App() {
     });
     setShowLayoutModal(false);
     requestAnimationFrame(fitView);
-  }
-
-  function autoOrganize() {
-    const tpl = getTemplateLayout(map.template);
-    applyPreset(tpl === "none" ? "mindmap" : tpl);
   }
 
   // ── Focus on node with fade transition ───────────────
@@ -3520,20 +3514,12 @@ export default function App() {
               ))}
             </div>
 
-            {/* Auto-pick footer */}
-            <div
-              className={`px-6 pb-5 pt-1 flex items-center justify-between border-t ${isDark ? "border-white/8" : "border-black/8"}`}
-            >
+            {/* Status: o card aplica na hora, então o rodapé só informa o estado */}
+            <div className={`px-6 py-3 border-t ${isDark ? "border-white/8" : "border-black/8"}`}>
               <p className={`text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                 Modelo atual do mapa: <span className="font-semibold text-indigo-400">{map.template}</span>
                 {activePreset ? <> · organizado como {activePreset.label}</> : null}
               </p>
-              <button
-                onClick={autoOrganize}
-                className="rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-2 text-sm font-semibold text-white shadow shadow-indigo-500/30 hover:opacity-90 transition"
-              >
-                ✨ Aplicar modelo sugerido
-              </button>
             </div>
           </div>
         </div>
