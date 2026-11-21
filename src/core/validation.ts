@@ -1,11 +1,12 @@
 // Validação do formato de mapa recebido por importação.
 
-import type { AttachType, EdgeStyle, MMap, NodeShape, Workspace } from "./model";
-import { ATTACH_TYPES, TEMPLATES, legacyLinksToAttachments, uid } from "./model";
+import type { AttachType, EdgeRouting, EdgeStyle, MMap, NodeShape, Workspace } from "./model";
+import { ATTACH_TYPES, EDGE_ROUTINGS, TEMPLATES, legacyLinksToAttachments, uid } from "./model";
 
 // ── Validador central de mapa ─────────────────────────────────────
 const SHAPES = new Set<NodeShape>(["card", "rect", "circle", "capsule", "hex"]);
 const EDGE_STYLES = new Set<EdgeStyle>(["solid", "dashed", "dotted"]);
+const EDGE_ROUTING_SET = new Set<EdgeRouting>(EDGE_ROUTINGS);
 const ATTACHMENT_TYPES = new Set<AttachType>(ATTACH_TYPES.map(({ type }) => type));
 
 function isFiniteNumber(v: unknown): v is number {
@@ -98,6 +99,8 @@ export function validateMMap(raw: unknown): { ok: true; map: MMap } | { ok: fals
       return { ok: false, error: `Aresta '${e.id}' com target órfão: ${e.target}` };
     if (e.style !== undefined && (typeof e.style !== "string" || !EDGE_STYLES.has(e.style as EdgeStyle)))
       return { ok: false, error: `Aresta '${e.id}' com style inválido` };
+    if (e.routing !== undefined && (typeof e.routing !== "string" || !EDGE_ROUTING_SET.has(e.routing as EdgeRouting)))
+      return { ok: false, error: `Aresta '${e.id}' com routing inválido` };
   }
 
   // Reatribui ids únicos para garantir isolamento (previne colisões entre mapas importados)

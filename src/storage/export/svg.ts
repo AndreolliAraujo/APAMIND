@@ -25,7 +25,7 @@ export function exportSVG(map: MMap, themeDark = true) {
     const s = map.nodes.find((n) => n.id === e.source);
     const t = map.nodes.find((n) => n.id === e.target);
     if (!s || !t) return;
-    svg += `<path d="${edgePath(s.x, s.y, t.x, t.y)}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round"/>`;
+    svg += `<path d="${edgePath(s.x, s.y, t.x, t.y, e.routing)}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round"/>`;
   });
 
   map.nodes.forEach((n) => {

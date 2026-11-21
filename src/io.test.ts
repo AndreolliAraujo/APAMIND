@@ -166,6 +166,19 @@ describe("importação e exportação", () => {
     expect(await importXMind(file("empty.xmind", emptyZip))).toMatchObject({ ok: false });
   });
 
+  it("preserva a geometria da conexão na importação e recusa routing desconhecido", async () => {
+    const routed = sampleMap();
+    routed.edges[0].routing = "ortho";
+    const imported = await importFile(file("routing.apamind.json", serializeMapJSON(routed)));
+    expect(imported).toMatchObject({ ok: true, kind: "map" });
+    if (!imported.ok || imported.kind !== "map") return;
+    expect(imported.map.edges[0].routing).toBe("ortho");
+
+    const broken = sampleMap();
+    (broken.edges[0] as { routing?: string }).routing = "zigzag";
+    expect(validateMMap(broken).ok).toBe(false);
+  });
+
   it("migrates the deprecated links field into url attachments", () => {
     const legacy = {
       ...sampleMap(),

@@ -10,6 +10,7 @@ import {
   type MEdge,
   type TemplateName,
   type Attachment,
+  type EdgeRouting,
   type EdgeStyle,
   type Workspace,
   TEMPLATES,
@@ -64,11 +65,13 @@ import { normalizeSchemeLessWebAddress } from "./attachmentSecurity";
 import { openAttachment } from "./attachmentActions";
 import {
   addNodeToMap,
+  applyEdgeRoutingToAllEdges,
   copyMapSelection,
   pasteMapSelection,
   removeEdgeFromMap,
   removeMapFromWorkspace,
   removeNodesFromMap,
+  updateEdgeRoutingInMap,
   updateNodeInMap,
   type MapClipboard,
 } from "./mapOperations";
@@ -108,6 +111,9 @@ type CtxMenu = {
   wx?: number;
   wy?: number;
 } | null;
+
+// Rótulos da geometria da conexão usados no menu de contexto.
+const ROUTING_LABELS: Record<EdgeRouting, string> = { curve: "Curva", straight: "Reta", ortho: "Ortogonal" };
 
 // ── Markdown renderer (simple) ─────────────────────────────────────
 
@@ -718,6 +724,20 @@ export default function App() {
   function updateEdgeStyle(id: string, style: EdgeStyle) {
     pushUndo();
     updMap((m) => ({ ...m, edges: m.edges.map((e) => (e.id === id ? { ...e, style } : e)) }));
+  }
+
+  // Geometria da conexão. Sem mudança efetiva não grava nada nem empilha undo.
+  function updateEdgeRouting(id: string, routing: EdgeRouting) {
+    const current = map.edges.find((e) => e.id === id);
+    if (!current || (current.routing ?? "curve") === routing) return;
+    pushUndo();
+    updMap((m) => updateEdgeRoutingInMap(m, id, routing));
+  }
+
+  function applyRoutingToAllEdges(routing: EdgeRouting) {
+    if (map.edges.every((e) => (e.routing ?? "curve") === routing)) return;
+    pushUndo();
+    updMap((m) => applyEdgeRoutingToAllEdges(m, routing));
   }
 
   function updateNodeFn(id: string, patch: Partial<MNode>) {
@@ -1924,14 +1944,17 @@ export default function App() {
               }}
             >
               {/* Edges SVG */}
-              <svg style={{ position: "absolute", left: 0, top: 0, width: 1, height: 1, overflow: "visible" }}>
+              <svg
+                data-testid="edges"
+                style={{ position: "absolute", left: 0, top: 0, width: 1, height: 1, overflow: "visible" }}
+              >
                 {map.edges.map((edge) => {
                   const s = nodeMap.get(edge.source);
                   const t = nodeMap.get(edge.target);
                   if (!s || !t) return null;
                   const hidden = collapsed.has(edge.source) || !isVisible(s.id) || !isVisible(t.id);
                   if (hidden) return null;
-                  const d = edgePath(s.x, s.y, t.x, t.y);
+                  const d = edgePath(s.x, s.y, t.x, t.y, edge.routing);
                   const hi = hoveredEdge === edge.id;
                   const dash = edge.style === "dashed" ? "8 5" : edge.style === "dotted" ? "3 4" : undefined;
                   return (
@@ -2548,8 +2571,8 @@ export default function App() {
           <div
             role="menu"
             aria-label="Menu de contexto"
-            className={`fixed z-50 rounded-lg border shadow-2xl p-0.5 min-w-[11rem] ${isDark ? "border-white/10 bg-slate-900/95 backdrop-blur-xl text-slate-200" : "border-black/10 bg-white/95 backdrop-blur-xl text-slate-800"}`}
-            style={{ left: Math.min(ctx.x, window.innerWidth - 200), top: Math.min(ctx.y, window.innerHeight - 260) }}
+            className={`fixed z-50 rounded-lg border shadow-2xl p-0.5 min-w-[11rem] max-h-[70vh] overflow-y-auto custom-scroll ${isDark ? "border-white/10 bg-slate-900/95 backdrop-blur-xl text-slate-200" : "border-black/10 bg-white/95 backdrop-blur-xl text-slate-800"}`}
+            style={{ left: Math.min(ctx.x, window.innerWidth - 260), top: Math.min(ctx.y, window.innerHeight - 340) }}
           >
             {ctx.nodeId && (
               <>
@@ -2667,40 +2690,74 @@ export default function App() {
                 />
               </>
             )}
-            {ctx.edgeId && (
-              <>
-                <CtxBtn
-                  label="— Linha sólida"
-                  onClick={() => {
-                    updateEdgeStyle(ctx.edgeId!, "solid");
-                    setCtx(null);
-                  }}
-                />
-                <CtxBtn
-                  label="- - Linha tracejada"
-                  onClick={() => {
-                    updateEdgeStyle(ctx.edgeId!, "dashed");
-                    setCtx(null);
-                  }}
-                />
-                <CtxBtn
-                  label="· · Linha pontilhada"
-                  onClick={() => {
-                    updateEdgeStyle(ctx.edgeId!, "dotted");
-                    setCtx(null);
-                  }}
-                />
-                <div className={`my-1 h-px ${isDark ? "bg-white/10" : "bg-black/10"}`} />
-                <CtxBtn
-                  label="🗑 Remover conexão"
-                  danger
-                  onClick={() => {
-                    deleteEdgeFn(ctx.edgeId!);
-                    setCtx(null);
-                  }}
-                />
-              </>
-            )}
+            {ctx.edgeId &&
+              (() => {
+                const edgeId = ctx.edgeId!;
+                const routing = map.edges.find((edge) => edge.id === edgeId)?.routing ?? "curve";
+                return (
+                  <>
+                    <CtxBtn
+                      label="— Linha sólida"
+                      onClick={() => {
+                        updateEdgeStyle(edgeId, "solid");
+                        setCtx(null);
+                      }}
+                    />
+                    <CtxBtn
+                      label="- - Linha tracejada"
+                      onClick={() => {
+                        updateEdgeStyle(edgeId, "dashed");
+                        setCtx(null);
+                      }}
+                    />
+                    <CtxBtn
+                      label="· · Linha pontilhada"
+                      onClick={() => {
+                        updateEdgeStyle(edgeId, "dotted");
+                        setCtx(null);
+                      }}
+                    />
+                    <div className={`my-1 h-px ${isDark ? "bg-white/10" : "bg-black/10"}`} />
+                    <CtxBtn
+                      label={`${routing === "curve" ? "✓ " : ""}↺ Conexão curva`}
+                      onClick={() => {
+                        updateEdgeRouting(edgeId, "curve");
+                        setCtx(null);
+                      }}
+                    />
+                    <CtxBtn
+                      label={`${routing === "straight" ? "✓ " : ""}↗ Conexão reta`}
+                      onClick={() => {
+                        updateEdgeRouting(edgeId, "straight");
+                        setCtx(null);
+                      }}
+                    />
+                    <CtxBtn
+                      label={`${routing === "ortho" ? "✓ " : ""}⌐ Conexão ortogonal`}
+                      onClick={() => {
+                        updateEdgeRouting(edgeId, "ortho");
+                        setCtx(null);
+                      }}
+                    />
+                    <CtxBtn
+                      label={`Aplicar "${ROUTING_LABELS[routing]}" a todas as conexões`}
+                      onClick={() => {
+                        applyRoutingToAllEdges(routing);
+                        setCtx(null);
+                      }}
+                    />
+                    <div className={`my-1 h-px ${isDark ? "bg-white/10" : "bg-black/10"}`} />
+                    <CtxBtn
+                      label="🗑 Remover conexão"
+                      danger
+                      onClick={() => {
+                        deleteEdgeFn(edgeId);
+                        setCtx(null);
+                      }}
+                    />
+                  </>
+                );
+              })()}
             {!ctx.nodeId && !ctx.edgeId && (
               <>
                 <CtxBtn

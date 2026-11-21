@@ -69,12 +69,18 @@ export interface MNode {
 }
 
 export type EdgeStyle = "solid" | "dashed" | "dotted";
+// Geometria da conexão. `curve` é o padrão historico: ausência do campo
+// significa curva, para os mapas antigos continuarem byte a byte iguais.
+export type EdgeRouting = "curve" | "straight" | "ortho";
+
+export const EDGE_ROUTINGS: EdgeRouting[] = ["curve", "straight", "ortho"];
 
 export interface MEdge {
   id: string;
   source: string;
   target: string;
   style?: EdgeStyle;
+  routing?: EdgeRouting;
 }
 
 export interface MMap {
@@ -142,8 +148,8 @@ export function mkNode(
 ): MNode {
   return { id: uid("n"), title, note, x, y, tone, shape, ...extra };
 }
-export function mkEdge(source: string, target: string, style?: EdgeStyle): MEdge {
-  return { id: uid("e"), source, target, style };
+export function mkEdge(source: string, target: string, style?: EdgeStyle, routing?: EdgeRouting): MEdge {
+  return { id: uid("e"), source, target, style, routing };
 }
 
 /**

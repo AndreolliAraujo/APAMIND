@@ -1,4 +1,5 @@
 import type { MMap } from "../../core/model";
+import { edgeSegments } from "../../core/geometry";
 import { download, roundRect, safeName } from "./files";
 
 // ── Export PNG ────────────────────────────────────────────────────
@@ -30,9 +31,22 @@ export function exportPNG(map: MMap, themeDark = true) {
     ctx.beginPath();
     ctx.strokeStyle = themeDark ? "rgba(165,180,252,0.5)" : "rgba(79,70,229,0.4)";
     ctx.lineWidth = 2;
-    const cx = (s.x + t.x) / 2;
     ctx.moveTo(s.x - minX, s.y - minY);
-    ctx.bezierCurveTo(cx - minX, s.y - minY, cx - minX, t.y - minY, t.x - minX, t.y - minY);
+    // Mesmos segmentos do canvas/exportadores: o PNG nao pode divergir da tela.
+    for (const segment of edgeSegments(s.x, s.y, t.x, t.y, e.routing)) {
+      if (segment.kind === "line") {
+        ctx.lineTo(segment.x - minX, segment.y - minY);
+      } else {
+        ctx.bezierCurveTo(
+          segment.c1x - minX,
+          segment.c1y - minY,
+          segment.c2x - minX,
+          segment.c2y - minY,
+          segment.x - minX,
+          segment.y - minY,
+        );
+      }
+    }
     ctx.stroke();
   });
 

@@ -71,3 +71,50 @@ describe("App: busca de nós", () => {
     expect(screen.getByTestId("zoom-level").textContent?.replace(/\D/g, "")).toBe("120");
   });
 });
+
+describe("App: geometria das conexões", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    delete (window as { __TAURI__?: unknown }).__TAURI__;
+    vi.restoreAllMocks();
+  });
+
+  it("mantém a curva como padrão e troca para ortogonal pelo menu de contexto", async () => {
+    render(<App />);
+    const edges = await screen.findByTestId("edges");
+    const paths = edges.querySelectorAll("path");
+    expect(paths.length).toBeGreaterThan(1);
+
+    // Por conexão existem dois paths: a linha visível e a área de clique.
+    // Os dois usam a mesma geometria, e o padrão continua sendo a curva.
+    expect(paths[0].getAttribute("d")).toContain(" C ");
+    expect(paths[1].getAttribute("d")).toBe(paths[0].getAttribute("d"));
+
+    fireEvent.contextMenu(paths[1], { clientX: 40, clientY: 40 });
+    fireEvent.click(screen.getByRole("menuitem", { name: /Conexão ortogonal/ }));
+
+    await waitFor(() => expect(paths[0].getAttribute("d")).toContain(" L "));
+    expect(paths[1].getAttribute("d")).toBe(paths[0].getAttribute("d"));
+  });
+
+  it("aplica a geometria escolhida a todas as conexões", async () => {
+    render(<App />);
+    const edges = await screen.findByTestId("edges");
+    const paths = edges.querySelectorAll("path");
+
+    fireEvent.contextMenu(paths[1], { clientX: 40, clientY: 40 });
+    fireEvent.click(screen.getByRole("menuitem", { name: /Conexão ortogonal/ }));
+    await waitFor(() => expect(paths[0].getAttribute("d")).toContain(" L "));
+
+    // A opção "Aplicar" usa a geometria atual da conexão clicada: com a primeira
+    // conexão já ortogonal, o menu oferece propagar "Ortogonal" para as demais.
+    fireEvent.contextMenu(paths[1], { clientX: 40, clientY: 40 });
+    fireEvent.click(screen.getByRole("menuitem", { name: /Aplicar "Ortogonal" a todas as conexões/ }));
+
+    await waitFor(() => {
+      const visible = Array.from(edges.querySelectorAll("path")).filter((_, index) => index % 2 === 0);
+      expect(visible.length).toBeGreaterThan(1);
+      expect(visible.every((path) => path.getAttribute("d")?.includes(" L "))).toBe(true);
+    });
+  });
+});

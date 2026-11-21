@@ -31,7 +31,7 @@ export function exportHTML(map: MMap, themeDark = true) {
     const s = map.nodes.find((n) => n.id === e.source);
     const t = map.nodes.find((n) => n.id === e.target);
     if (!s || !t) return;
-    html += `<path d="${edgePath(s.x - minX, s.y - minY, t.x - minX, t.y - minY)}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round"/>`;
+    html += `<path d="${edgePath(s.x - minX, s.y - minY, t.x - minX, t.y - minY, e.routing)}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round"/>`;
   });
   html += `</svg>`;
 
