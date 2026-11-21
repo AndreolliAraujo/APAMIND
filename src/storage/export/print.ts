@@ -1,6 +1,7 @@
 import type { MMap } from "../../core/model";
 import { edgePath } from "../../core/geometry";
 import { esc } from "./files";
+import { minimalDocument } from "./minimalMarkup";
 
 // ── Print ─────────────────────────────────────────────────────────
 export function printMap(map: MMap, themeDark = true) {
@@ -17,6 +18,15 @@ export function printMap(map: MMap, themeDark = true) {
     maxY = Math.max(...ys) + pad;
   const w = maxX - minX || 1,
     h = maxY - minY || 1;
+
+  if (map.template === "Minimalista") {
+    const win = window.open("", "_blank", "noopener,noreferrer");
+    if (win) {
+      win.document.write(minimalDocument(map, { minX, minY, width: w, height: h, print: true }));
+      win.document.close();
+    }
+    return;
+  }
 
   let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><title>${esc(map.title)}</title><style>
     @media print{body{margin:0}}

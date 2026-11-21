@@ -1,10 +1,60 @@
 import type { MMap } from "../../core/model";
 import { edgePath } from "../../core/geometry";
+import {
+  MINIMAL_COLORS,
+  MINIMAL_NODE_WIDTH,
+  minimalEdgeFor,
+  minimalEdgePath,
+  minimalTextBlock,
+} from "../../core/minimal";
 import { download, esc, safeName } from "./files";
 
 // ── Export SVG ────────────────────────────────────────────────────
+function exportMinimalSVG(map: MMap) {
+  const pad = 100;
+  const xs = map.nodes.map((n) => n.x);
+  const ys = map.nodes.map((n) => n.y);
+  const minX = Math.min(...xs) - pad;
+  const maxX = Math.max(...xs) + pad;
+  const minY = Math.min(...ys) - pad;
+  const maxY = Math.max(...ys) + pad;
+  const w = Math.max(1, maxX - minX);
+  const h = Math.max(1, maxY - minY);
+  const root = map.nodes[0];
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${minX} ${minY} ${w} ${h}">`;
+  svg += `<rect width="100%" height="100%" fill="${MINIMAL_COLORS.background}"/>`;
+
+  map.edges.forEach((edge) => {
+    const shape = minimalEdgeFor(map, edge);
+    if (!shape) return;
+    svg += `<path d="${minimalEdgePath(shape)}" fill="none" stroke="${MINIMAL_COLORS.accent}" stroke-width="2" stroke-linecap="round"/>`;
+    svg += `<circle cx="${shape.outer.x}" cy="${shape.outer.y}" r="8" fill="${MINIMAL_COLORS.background}" stroke="${MINIMAL_COLORS.accent}" stroke-width="2"/>`;
+  });
+
+  map.nodes.forEach((node) => {
+    const isRoot = node.id === root.id;
+    const block = minimalTextBlock(node);
+    const x = isRoot ? node.x : node.x - MINIMAL_NODE_WIDTH / 2 + 8;
+    const anchor = isRoot ? "middle" : "start";
+    block.title.forEach((line, i) => {
+      svg += `<text x="${x}" y="${block.titleBaseline + i * block.lineHeightTitle}" text-anchor="${anchor}" font-family="sans-serif" font-size="${isRoot ? 24 : 14}" font-weight="${isRoot ? 700 : 500}" fill="${isRoot ? MINIMAL_COLORS.accent : MINIMAL_COLORS.text}">${esc(line)}</text>`;
+    });
+    block.note.forEach((line, i) => {
+      svg += `<text x="${x}" y="${block.noteBaseline + i * block.lineHeightNote}" text-anchor="${anchor}" font-family="sans-serif" font-size="12" fill="${MINIMAL_COLORS.note}">${esc(line)}</text>`;
+    });
+  });
+
+  svg += `</svg>`;
+  download(new Blob([svg], { type: "image/svg+xml" }), `${safeName(map.title)}.svg`);
+}
+
 export function exportSVG(map: MMap, themeDark = true) {
   if (!map.nodes.length) return;
+  if (map.template === "Minimalista") {
+    exportMinimalSVG(map);
+    return;
+  }
   const pad = 80;
   const xs = map.nodes.map((n) => n.x);
   const ys = map.nodes.map((n) => n.y);

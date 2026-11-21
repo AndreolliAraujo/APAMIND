@@ -126,8 +126,8 @@ describe("presets de organizacao", () => {
     for (const node of out) expect(Number.isFinite(node.x) && Number.isFinite(node.y)).toBe(true);
   });
 
-  it("mapeia o template Minimalista para o arranjo do mapa mental", () => {
-    expect(getTemplateLayout("Minimalista")).toBe("mindmap");
+  it("mapeia o template Minimalista para o arranjo bilateral", () => {
+    expect(getTemplateLayout("Minimalista")).toBe("minimal");
     // Modelos existentes seguem mapeados como antes.
     expect(getTemplateLayout("Organograma")).toBe("org");
     expect(getTemplateLayout("Espinha de Peixe")).toBe("fishbone");

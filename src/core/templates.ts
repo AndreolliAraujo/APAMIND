@@ -2,6 +2,7 @@
 
 import type { MMap, TemplateName } from "./model";
 import { mkEdge, mkNode, uid } from "./model";
+import { autoLayoutMinimal } from "./layout";
 
 // ── Templates ─────────────────────────────────────────────────────
 function tplModeloA(t: string) {
@@ -234,8 +235,8 @@ function tplTimeline(t: string) {
 }
 
 function tplMinimalista(t: string) {
-  // Começo enxuto: raiz central e quatro ramos de texto puro. O visual do
-  // template vive em src/ui/minimal.ts; aqui só nascem nós e conexões.
+  // Começo enxuto: raiz central e quatro ramos de texto puro. O arranjo é o
+  // bilateral do próprio template (duas colunas de cada lado).
   const c = mkNode(t, "Comece por uma ideia", 500, 380, 0, "capsule");
   const ns = [
     mkNode("Primeira ideia", "Nota curta de apoio", 860, 300, 1, "card"),
@@ -243,7 +244,8 @@ function tplMinimalista(t: string) {
     mkNode("Ramo à esquerda", "", 140, 300, 3, "card"),
     mkNode("Outro ramo", "", 140, 480, 4, "card"),
   ];
-  return { nodes: [c, ...ns], edges: ns.map((n) => mkEdge(c.id, n.id)) };
+  const edges = ns.map((n) => mkEdge(c.id, n.id));
+  return { nodes: autoLayoutMinimal([c, ...ns], edges, c.id), edges };
 }
 
 function buildTpl(title: string, tpl: TemplateName) {

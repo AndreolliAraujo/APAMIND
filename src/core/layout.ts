@@ -2,6 +2,7 @@
 
 import type { LayoutPresetId, MEdge, MNode, TemplateName } from "./model";
 import { childrenOf, sanitizeLog } from "./model";
+import { MINIMAL_COLUMN_STEP, MINIMAL_LEVEL_1_OFFSET, MINIMAL_VERTICAL_GAP, minimalNodeHeight } from "./minimal";
 
 // ── Layout algorithms ─────────────────────────────────────────────
 // Caixa conservadora de um nó: o cartão pode chegar a max-w-[16rem] (256px) e a
@@ -118,7 +119,7 @@ export function autoLayoutTree(nodes: MNode[], edges: MEdge[], rootId?: string) 
 }
 
 /** Modelo de organização sugerido para cada template inicial. */
-export function getTemplateLayout(tpl: TemplateName): LayoutPresetId | "none" {
+export function getTemplateLayout(tpl: TemplateName): LayoutPresetId | "minimal" | "none" {
   if (tpl === "Organograma" || tpl === "Hierarquico") return "org";
   if (tpl === "Arvore" || tpl === "Arvore Direita" || tpl === "Arvore Esquerda") return "tree";
   if (tpl === "Radial") return "radial";
@@ -127,10 +128,98 @@ export function getTemplateLayout(tpl: TemplateName): LayoutPresetId | "none" {
   if (tpl === "Modelo A") return "mindmap";
   if (tpl === "Timeline") return "timeline";
   if (tpl === "Kanban") return "grid";
-  // Minimalista usa o arranjo do mapa mental por enquanto; a Etapa 4 troca
-  // por um arranjo bilateral próprio.
-  if (tpl === "Minimalista") return "mindmap";
+  // Minimalista tem arranjo próprio, bilateral.
+  if (tpl === "Minimalista") return "minimal";
   return "none";
+}
+
+/**
+ * Layout bilateral do template Minimalista: raiz no centro, ramos principais
+ * alternados entre esquerda e direita, e cada nível seguinte numa coluna mais
+ * para fora no mesmo lado. O espaçamento vertical usa a altura estimada do
+ * texto de cada nó, então títulos de várias linhas não se sobrepõem.
+ */
+export function autoLayoutMinimal(nodes: MNode[], edges: MEdge[], rootId?: string): MNode[] {
+  const root = pickRoot(nodes, rootId);
+  if (!root) return nodes;
+
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const oriented = orientedEdges(edges, root.id);
+  const cx = 600;
+  const cy = 380;
+  const spots = new Map<string, { x: number; y: number }>();
+  spots.set(root.id, { x: cx, y: cy });
+
+  // Ordem dos irmãos pela posição atual mantém a leitura ao reaplicar.
+  const kidsOf = (id: string) =>
+    uniqueChildren(id, oriented, byId).sort(
+      (a, b) => byId.get(a)!.y - byId.get(b)!.y || byId.get(a)!.x - byId.get(b)!.x,
+    );
+
+  // Altura da faixa ocupada pela subárvore (nó + descendentes).
+  const bands = new Map<string, number>();
+  const visiting = new Set<string>();
+  const bandOf = (id: string): number => {
+    const cached = bands.get(id);
+    if (cached !== undefined) return cached;
+    const own = minimalNodeHeight(byId.get(id)!);
+    if (visiting.has(id)) return own;
+    visiting.add(id);
+    const kids = kidsOf(id);
+    const total = kids.length
+      ? Math.max(own, kids.reduce((sum, kid) => sum + bandOf(kid), 0) + MINIMAL_VERTICAL_GAP * (kids.length - 1))
+      : own;
+    visiting.delete(id);
+    bands.set(id, total);
+    return total;
+  };
+
+  const placedIds = new Set<string>();
+  const place = (id: string, depth: number, dir: 1 | -1, top: number) => {
+    if (placedIds.has(id)) {
+      console.warn(`APAMIND: ciclo em autoLayoutMinimal no no ${sanitizeLog(id)}`);
+      return;
+    }
+    placedIds.add(id);
+    const y = top + bandOf(id) / 2;
+    spots.set(id, { x: cx + dir * (MINIMAL_LEVEL_1_OFFSET + (depth - 1) * MINIMAL_COLUMN_STEP), y });
+    const kids = kidsOf(id);
+    if (!kids.length) return;
+    const kidsBand = kids.reduce((sum, kid) => sum + bandOf(kid), 0) + MINIMAL_VERTICAL_GAP * (kids.length - 1);
+    let cursor = y - kidsBand / 2;
+    for (const kid of kids) {
+      place(kid, depth + 1, dir, cursor);
+      cursor += bandOf(kid) + MINIMAL_VERTICAL_GAP;
+    }
+  };
+
+  const placeSide = (ids: string[], dir: 1 | -1) => {
+    if (!ids.length) return;
+    const total = ids.reduce((sum, id) => sum + bandOf(id), 0) + MINIMAL_VERTICAL_GAP * (ids.length - 1);
+    let cursor = cy - total / 2;
+    for (const id of ids) {
+      place(id, 1, dir, cursor);
+      cursor += bandOf(id) + MINIMAL_VERTICAL_GAP;
+    }
+  };
+
+  // Mantém os lados já usados (reaplicar não troca ramo de lado); se um dos
+  // lados estiver vazio, distribui alternando.
+  const rootKids = kidsOf(root.id);
+  const currentRight = rootKids.filter((id) => byId.get(id)!.x > cx);
+  const currentLeft = rootKids.filter((id) => byId.get(id)!.x < cx);
+  const alreadyBilateral = currentRight.length > 0 && currentLeft.length > 0;
+  placeSide(alreadyBilateral ? currentRight : rootKids.filter((_, i) => i % 2 === 0), 1);
+  placeSide(alreadyBilateral ? currentLeft : rootKids.filter((_, i) => i % 2 === 1), -1);
+
+  // Nós fora da árvore (ilhas/ciclos) ficam numa faixa abaixo, sem sobrepor.
+  const leftovers = nodes.filter((n) => !spots.has(n.id));
+  if (leftovers.length) {
+    const bottom =
+      Math.max(...[...spots.values()].map((spot) => spot.y)) + minimalNodeHeight(root) + MINIMAL_VERTICAL_GAP * 2;
+    leftovers.forEach((n, i) => spots.set(n.id, { x: 120 + i * MINIMAL_COLUMN_STEP, y: bottom }));
+  }
+  return positions(nodes, spots);
 }
 
 // ── Utilitários compartilhados pelos modelos ──────────────────────

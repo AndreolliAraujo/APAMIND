@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { mkEdge, mkNode } from "./core/model";
+import { minimalTipId } from "./core/minimal";
 import { createMap } from "./core/templates";
 
 const nodeButtons = () => screen.queryAllByRole("button", { name: /^No: /i });
@@ -184,5 +186,32 @@ describe("App: template Minimalista", () => {
     expect(document.querySelector("main")!.style.backgroundColor).toBe("rgb(248, 250, 252)");
     const edges = await screen.findByTestId("edges");
     expect(edges.querySelector("path")!.getAttribute("stroke")).toBe("#4F46E5");
+  });
+
+  it("desenha a linha sublinhada e recolhe o ramo pelo círculo da ponta", async () => {
+    const root = mkNode("Raiz", "", 600, 380, 0);
+    const child = mkNode("Ramo", "", 940, 380, 1);
+    const leaf = mkNode("Sub", "", 1240, 380, 2);
+    const map = {
+      ...createMap("Minimal", "Minimalista"),
+      nodes: [root, child, leaf],
+      edges: [mkEdge(root.id, child.id), mkEdge(child.id, leaf.id)],
+    };
+    localStorage.setItem("apamind.v6", JSON.stringify({ active: map.id, maps: [map] }));
+
+    render(<App />);
+    const edges = await screen.findByTestId("edges");
+
+    // Linha do modelo: curva curta + reta horizontal; a área de clique é só a reta,
+    // para não cobrir o texto do nó.
+    const [visible, hit] = edges.querySelectorAll("path");
+    expect(visible.getAttribute("d")).toContain(" C ");
+    expect(visible.getAttribute("d")).toContain(" L ");
+    expect(hit.getAttribute("d")).not.toContain(" C ");
+
+    // O círculo da ponta recolhe o ramo e mostra quantos sub-itens ficaram ocultos.
+    fireEvent.click(screen.getByRole("button", { name: /Expandir ou recolher ramo de Ramo/ }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "No: Sub" })).toBeNull());
+    expect(screen.getByTestId(minimalTipId(child.id)).closest("g")!.textContent).toContain("1");
   });
 });

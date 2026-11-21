@@ -34,11 +34,11 @@ export function MinimalNodeBody({
           style={{ borderColor: MINIMAL_THEME.accent, color: "inherit" }}
         />
       ) : (
-        <div className={isRoot ? "max-w-[18rem] break-words" : "truncate"}>{node.title}</div>
+        <div className={isRoot ? "max-w-[18rem] break-words" : "break-words"}>{node.title}</div>
       )}
       {node.note && !editing && (
         <div
-          className={`mt-1 text-xs font-normal ${isRoot ? "max-w-[16rem] break-words text-center" : "truncate"}`}
+          className={`mt-1 line-clamp-2 text-xs font-normal ${isRoot ? "max-w-[16rem] text-center" : ""}`}
           style={{ color: MINIMAL_THEME.note }}
         >
           {node.note}

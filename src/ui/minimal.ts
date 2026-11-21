@@ -1,22 +1,17 @@
 // Ilha visual do template "Minimalista".
 //
 // Nada aqui é compartilhado com os modelos existentes: são tokens e classes
-// usados apenas quando map.template === "Minimalista". Mudar qualquer valor
-// deste arquivo não afeta os outros templates.
+// usados apenas quando map.template === "Minimalista". As cores e a largura
+// vêm do core para canvas e exportadores nunca divergirem.
 
 import type { TemplateName } from "../core/model";
+import { MINIMAL_COLORS, MINIMAL_NODE_WIDTH } from "../core/minimal";
 
-export const MINIMAL_THEME = {
-  background: "#F8FAFC",
-  text: "#1E293B",
-  note: "rgba(30, 41, 59, 0.62)",
-  accent: "#4F46E5",
-  accentHover: "#4338CA",
-} as const;
+export { MINIMAL_NODE_WIDTH };
 
-/** Largura fixa do bloco de texto dos filhos (previsível para a geometria da Etapa 4). */
-export const MINIMAL_NODE_WIDTH = 220;
+export const MINIMAL_THEME = MINIMAL_COLORS;
 
+/** Largura fixa do bloco de texto dos filhos (previsível para a geometria bilateral). */
 export function isMinimalTemplate(template: TemplateName): boolean {
   return template === "Minimalista";
 }

@@ -79,6 +79,13 @@ import {
 } from "./backgrounds";
 import { MINIMAL_NODE_WIDTH, MINIMAL_THEME, isMinimalTemplate, minimalNodeClass, minimalNodeColor } from "./ui/minimal";
 import { MinimalNodeBody } from "./components/MinimalNodeBody";
+import {
+  minimalEdgeFor,
+  minimalEdgeHorizontal,
+  minimalEdgePath,
+  minimalHiddenCount,
+  minimalTipId,
+} from "./core/minimal";
 import { CloseFailureDialog, ColorInput, CtxBtn, EmojiPicker } from "./components/AppControls";
 import { RecoveryDialog } from "./components/RecoveryDialog";
 
@@ -1963,11 +1970,18 @@ export default function App() {
                   if (!s || !t) return null;
                   const hidden = collapsed.has(edge.source) || !isVisible(s.id) || !isVisible(t.id);
                   if (hidden) return null;
-                  const d = edge.routing
-                    ? edgePath(s.x, s.y, t.x, t.y, edge.routing)
-                    : activePreset
-                      ? presetEdgePath(activePreset, s.x, s.y, t.x, t.y, decorationAxisY)
-                      : edgePath(s.x, s.y, t.x, t.y);
+                  // Minimalista: curva curta + reta sublinhando o texto abaixo do nó.
+                  const minimalShape = minimal ? minimalEdgeFor(map, edge) : null;
+                  const d = minimalShape
+                    ? minimalEdgePath(minimalShape)
+                    : edge.routing
+                      ? edgePath(s.x, s.y, t.x, t.y, edge.routing)
+                      : activePreset
+                        ? presetEdgePath(activePreset, s.x, s.y, t.x, t.y, decorationAxisY)
+                        : edgePath(s.x, s.y, t.x, t.y);
+                  const hitD = minimalShape ? minimalEdgeHorizontal(minimalShape) : d;
+                  const tipHidden = minimalShape && collapsed.has(t.id) ? minimalHiddenCount(t.id, map.edges) : 0;
+                  const tipInteractive = minimalShape !== null && hasKids.has(t.id);
                   const hi = hoveredEdge === edge.id;
                   const dash = edge.style === "dashed" ? "8 5" : edge.style === "dotted" ? "3 4" : undefined;
                   return (
@@ -1981,7 +1995,7 @@ export default function App() {
                         strokeDasharray={dash}
                       />
                       <path
-                        d={d}
+                        d={hitD}
                         fill="none"
                         stroke="transparent"
                         strokeWidth={14}
@@ -1990,6 +2004,53 @@ export default function App() {
                         onMouseLeave={() => setHoveredEdge(null)}
                         onContextMenu={(ev) => onEdgeCtx(ev, edge.id)}
                       />
+                      {minimalShape && (
+                        <g>
+                          {tipInteractive && (
+                            <circle
+                              cx={minimalShape.outer.x}
+                              cy={minimalShape.outer.y}
+                              r={16}
+                              fill="transparent"
+                              role="button"
+                              aria-label={`Expandir ou recolher ramo de ${t.title}`}
+                              style={{ pointerEvents: "auto", cursor: "pointer" }}
+                              onMouseDown={(ev) => ev.stopPropagation()}
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                toggleCollapse(t.id);
+                              }}
+                              onContextMenu={(ev) => {
+                                ev.preventDefault();
+                                ev.stopPropagation();
+                              }}
+                            />
+                          )}
+                          <circle
+                            data-testid={minimalTipId(t.id)}
+                            cx={minimalShape.outer.x}
+                            cy={minimalShape.outer.y}
+                            r={8}
+                            fill={MINIMAL_THEME.background}
+                            stroke={hi ? edgeHi : edgeClr}
+                            strokeWidth={2}
+                            style={{ pointerEvents: "none" }}
+                          />
+                          {tipHidden > 0 && (
+                            <text
+                              x={minimalShape.outer.x}
+                              y={minimalShape.outer.y + 3.2}
+                              textAnchor="middle"
+                              fontSize={9}
+                              fontWeight={600}
+                              fill={MINIMAL_THEME.accent}
+                              style={{ pointerEvents: "none" }}
+                            >
+                              {tipHidden}
+                            </text>
+                          )}
+                        </g>
+                      )}
                     </g>
                   );
                 })}

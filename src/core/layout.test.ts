@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { LAYOUT_METRICS, autoLayoutHierarchical, autoLayoutOrgChart, autoLayoutTree } from "./layout";
+import {
+  LAYOUT_METRICS,
+  autoLayoutHierarchical,
+  autoLayoutMinimal,
+  autoLayoutOrgChart,
+  autoLayoutTree,
+} from "./layout";
+import { MINIMAL_NODE_WIDTH, minimalNodeHeight } from "./minimal";
 import { mkEdge, mkNode } from "./model";
 import type { MEdge, MNode } from "./model";
 
@@ -141,5 +148,83 @@ describe("autoLayoutHierarchical (árvore horizontal)", () => {
     expect(m.get("A")!.x).toBeCloseTo(100 + LAYOUT_METRICS.nodeWidth + LAYOUT_METRICS.gapX);
     expect(m.get("R")!.y).toBeCloseTo((m.get("A")!.y + m.get("C")!.y) / 2);
     expect(m.get("A1")!.x).toBeGreaterThan(m.get("A")!.x);
+  });
+});
+
+/** Duas caixas de texto do Minimalista se sobrepõem quando os eixos não separam. */
+function minimalOverlap(a: MNode, b: MNode) {
+  return (
+    Math.abs(a.x - b.x) < MINIMAL_NODE_WIDTH && Math.abs(a.y - b.y) < (minimalNodeHeight(a) + minimalNodeHeight(b)) / 2
+  );
+}
+
+describe("autoLayoutMinimal (bilateral)", () => {
+  function bilateralTree() {
+    const nodes = [
+      node("R", 0, 0),
+      node("A", 0, 10),
+      node("B", 0, 20),
+      node("C", 0, 30),
+      node("D", 0, 40),
+      node("A1", 0, 0),
+      node("A2", 0, 0),
+      node("B1", 0, 0),
+    ];
+    nodes[1] = { ...nodes[1], title: "Primeiro ramo com um título longo de três linhas para testar o espaçamento" };
+    nodes[6] = { ...nodes[6], note: "nota curta de apoio" };
+    const edges: MEdge[] = [
+      mkEdge("R", "A"),
+      mkEdge("R", "B"),
+      mkEdge("R", "C"),
+      mkEdge("R", "D"),
+      mkEdge("A", "A1"),
+      mkEdge("A", "A2"),
+      mkEdge("B", "B1"),
+    ];
+    return { nodes, edges };
+  }
+
+  it("coloca a raiz no centro e alterna os ramos entre esquerda e direita", () => {
+    const { nodes, edges } = bilateralTree();
+    const m = byId(autoLayoutMinimal(nodes, edges, "R"));
+
+    expect(m.get("R")).toMatchObject({ x: 600, y: 380 });
+    expect(m.get("A")!.x).toBeGreaterThan(600);
+    expect(m.get("B")!.x).toBeLessThan(600);
+    expect(m.get("C")!.x).toBeGreaterThan(600);
+    expect(m.get("D")!.x).toBeLessThan(600);
+  });
+
+  it("empurra cada nível para fora, no mesmo lado do ramo", () => {
+    const { nodes, edges } = bilateralTree();
+    const m = byId(autoLayoutMinimal(nodes, edges, "R"));
+    expect(m.get("A1")!.x).toBeGreaterThan(m.get("A")!.x);
+    expect(m.get("A2")!.x).toBe(m.get("A1")!.x);
+    expect(m.get("B1")!.x).toBeLessThan(m.get("B")!.x);
+  });
+
+  it("não sobrepõe mesmo com título de várias linhas", () => {
+    const { nodes, edges } = bilateralTree();
+    const out = autoLayoutMinimal(nodes, edges, "R");
+    for (let i = 0; i < out.length; i++) {
+      for (let j = i + 1; j < out.length; j++) {
+        expect(minimalOverlap(out[i], out[j]), `${out[i].id} sobrepoe ${out[j].id}`).toBe(false);
+      }
+    }
+  });
+
+  it("é idempotente", () => {
+    const { nodes, edges } = bilateralTree();
+    const once = autoLayoutMinimal(nodes, edges, "R");
+    const twice = autoLayoutMinimal(once, edges, once[0].id);
+    expect(twice.map((n) => [n.id, n.x, n.y])).toEqual(once.map((n) => [n.id, n.x, n.y]));
+  });
+
+  it("não estoura com ciclo e posiciona todos os nós", () => {
+    const nodes = [node("R"), node("A"), node("B"), node("Ilha")];
+    const edges = [mkEdge("R", "A"), mkEdge("A", "B"), mkEdge("B", "A")];
+    const out = autoLayoutMinimal(nodes, edges, "R");
+    expect(out).toHaveLength(4);
+    for (const n of out) expect(Number.isFinite(n.x) && Number.isFinite(n.y)).toBe(true);
   });
 });
