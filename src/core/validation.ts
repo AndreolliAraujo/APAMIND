@@ -1,7 +1,15 @@
 // Validação do formato de mapa recebido por importação.
 
 import type { AttachType, EdgeRouting, EdgeStyle, LayoutPresetId, MMap, NodeShape, Workspace } from "./model";
-import { ATTACH_TYPES, EDGE_ROUTINGS, LAYOUT_PRESET_IDS, TEMPLATES, legacyLinksToAttachments, uid } from "./model";
+import {
+  ATTACH_TYPES,
+  EDGE_ROUTINGS,
+  LAYOUT_PRESET_IDS,
+  TEMPLATES,
+  legacyLinksToAttachments,
+  sanitizeMapTheme,
+  uid,
+} from "./model";
 
 // ── Validador central de mapa ─────────────────────────────────────
 const SHAPES = new Set<NodeShape>(["card", "rect", "circle", "capsule", "hex"]);
@@ -106,6 +114,7 @@ export function validateMMap(raw: unknown): { ok: true; map: MMap } | { ok: fals
   // Reatribui ids únicos para garantir isolamento (previne colisões entre mapas importados)
   const idRemap = new Map<string, string>();
   for (const n of r.nodes as unknown[]) idRemap.set((n as any).id, uid("n"));
+  const theme = sanitizeMapTheme(r.theme);
   const map: MMap = {
     id: uid("map"),
     title: r.title,
@@ -117,6 +126,7 @@ export function validateMMap(raw: unknown): { ok: true; map: MMap } | { ok: fals
     ...(typeof r.layoutPreset === "string" && LAYOUT_PRESET_IDS.includes(r.layoutPreset as LayoutPresetId)
       ? { layoutPreset: r.layoutPreset as LayoutPresetId }
       : {}),
+    ...(theme ? { theme } : {}),
     ...(Array.isArray(r.collapsedIds)
       ? { collapsedIds: r.collapsedIds.flatMap((id) => (idRemap.has(id) ? [idRemap.get(id)!] : [])) }
       : {}),

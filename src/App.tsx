@@ -186,6 +186,19 @@ function renderMarkdown(text: string, onOpenUrl?: (url: string) => void) {
   });
 }
 
+// Tema padrão do app. Mapas antigos (sem tema próprio) usam este valor até o
+// usuário ajustar algo; a partir daí o tema fica gravado no mapa.
+const DEFAULT_BACKGROUND: BackgroundPreset = {
+  name: "Aurora",
+  baseDark: "#080a12",
+  baseLight: "#f5f2ec",
+  glowA: "rgba(99,102,241,.55)",
+  glowB: "rgba(244,114,182,.40)",
+  glowC: "rgba(45,212,191,.30)",
+  pattern: "none",
+  animated: true,
+};
+
 // ── Main App ───────────────────────────────────────────────────────
 
 function CloseSavingNotice({ open, slow }: { open: boolean; slow: boolean }) {
@@ -220,7 +233,6 @@ function CloseSavingNotice({ open, slow }: { open: boolean; slow: boolean }) {
 }
 
 export default function App() {
-  const [isDark, setIsDark] = useState(true);
   const [initialLoad] = useState(() => {
     try {
       return { workspace: loadWs(), error: null as string | null };
@@ -229,6 +241,13 @@ export default function App() {
       return { workspace: { active: placeholder.id, maps: [placeholder] }, error: String(e) };
     }
   });
+  // O tema é do mapa (persistido junto com ele); ao abrir, vale o do mapa ativo.
+  const [initialTheme] = useState(() => {
+    const workspace = initialLoad.workspace;
+    const activeMap = workspace.maps.find((m) => m.id === workspace.active) ?? workspace.maps[0];
+    return activeMap?.theme;
+  });
+  const [isDark, setIsDark] = useState(initialTheme?.dark ?? true);
   const [bootIssue, setBootIssue] = useState<string | null>(initialLoad.error);
   const [bootReady, setBootReady] = useState(false);
   const [conflict, setConflict] = useState<WorkspaceConflict | null>(null);
@@ -336,16 +355,7 @@ export default function App() {
   const [showChecklistModal, setShowChecklistModal] = useState(false);
   const [checklistNodeId, setChecklistNodeId] = useState<string | null>(null);
   const [newCheckItem, setNewCheckItem] = useState("");
-  const [background, setBackground] = useState<BackgroundPreset>({
-    name: "Aurora",
-    baseDark: "#080a12",
-    baseLight: "#f5f2ec",
-    glowA: "rgba(99,102,241,.55)",
-    glowB: "rgba(244,114,182,.40)",
-    glowC: "rgba(45,212,191,.30)",
-    pattern: "none",
-    animated: true,
-  });
+  const [background, setBackground] = useState<BackgroundPreset>(initialTheme?.background ?? DEFAULT_BACKGROUND);
 
   // Clipboard
   const [clipboard, setClipboard] = useState<MapClipboard | null>(null);
@@ -577,6 +587,32 @@ export default function App() {
   // ── Core helpers ─────────────────────────────────────
   function updMap(fn: (m: MMap) => MMap) {
     setWs((w) => ({ ...w, maps: w.maps.map((m) => (m.id === w.active ? fn(m) : m)) }));
+  }
+
+  // ── Tema por mapa ────────────────────────────────────
+  // O tema vive no mapa (MMap.theme) e é gravado pelo autosave; o estado
+  // isDark/background reflete o mapa ativo. Mapas antigos (sem tema) caem no
+  // padrão do app, para não herdarem o tema do mapa que estava aberto antes.
+  function applyMapTheme(target: MMap | undefined) {
+    const theme = target?.theme ?? { dark: true, background: DEFAULT_BACKGROUND };
+    setIsDark(theme.dark);
+    setBackground(theme.background);
+  }
+
+  function persistTheme(dark: boolean, bg: BackgroundPreset) {
+    updMap((m) => ({ ...m, theme: { dark, background: bg } }));
+  }
+
+  function applyBackground(next: BackgroundPreset | ((current: BackgroundPreset) => BackgroundPreset)) {
+    const value = typeof next === "function" ? next(background) : next;
+    setBackground(value);
+    persistTheme(isDark, value);
+  }
+
+  function toggleTheme() {
+    const next = !isDark;
+    setIsDark(next);
+    persistTheme(next, background);
   }
 
   function pushUndo() {
@@ -877,6 +913,7 @@ export default function App() {
         void saveWs(next);
         return next;
       });
+      applyMapTheme(map);
       setSel(new Set());
       setShowImport(false);
     };
@@ -893,6 +930,7 @@ export default function App() {
         void saveWs(next);
         return next;
       });
+      applyMapTheme(result.maps[0]);
       setShowImport(false);
       return;
     }
@@ -907,9 +945,12 @@ export default function App() {
   }
 
   function confirmCreate() {
-    const m = createMap(draftTitle.trim() || `Novo mapa ${ws.maps.length + 1}`, draftTpl);
-    // O Minimalista nasce no seu próprio tema: claro, neutro e sem brilhos.
-    if (draftTpl === "Minimalista") {
+    const isMinimal = draftTpl === "Minimalista";
+    // O tema nasce com o mapa: Minimalista tem o seu próprio, os demais herdam
+    // o tema atual — e isso não altera o tema dos outros mapas.
+    const theme = isMinimal ? { dark: false, background: MINIMAL_BACKGROUND } : { dark: isDark, background };
+    const m = { ...createMap(draftTitle.trim() || `Novo mapa ${ws.maps.length + 1}`, draftTpl), theme };
+    if (isMinimal) {
       setIsDark(false);
       setBackground(MINIMAL_BACKGROUND);
     }
@@ -927,6 +968,7 @@ export default function App() {
   function switchMap(id: string) {
     setWs((w) => ({ ...w, active: id }));
     const target = ws.maps.find((m) => m.id === id);
+    applyMapTheme(target);
     setSel(new Set());
     setEditId(null);
     setCollapsed(new Set(target?.collapsedIds ?? []));
@@ -957,7 +999,9 @@ export default function App() {
       setSel(new Set());
       setEditId(null);
       setHistory(createMapHistory());
-      setCollapsed(new Set(newWs.maps.find((m) => m.id === newWs.active)?.collapsedIds ?? []));
+      const nextActive = newWs.maps.find((m) => m.id === newWs.active);
+      setCollapsed(new Set(nextActive?.collapsedIds ?? []));
+      applyMapTheme(nextActive);
     }
   }
 
@@ -1885,7 +1929,7 @@ export default function App() {
                 {sidebarOpen ? "◀ Ocultar" : "▶ Painel"}
               </button>
               <button
-                onClick={() => setIsDark((d) => !d)}
+                onClick={toggleTheme}
                 className="rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 px-3 py-1.5 text-xs font-medium text-white shadow shadow-indigo-500/20"
                 aria-label="Alternar tema claro/escuro"
               >
@@ -3680,7 +3724,7 @@ export default function App() {
                 {BACKGROUND_PRESETS.map((preset) => (
                   <button
                     key={preset.name}
-                    onClick={() => setBackground(preset)}
+                    onClick={() => applyBackground(preset)}
                     className={`group overflow-hidden rounded-2xl border transition-all ${background.name === preset.name ? "border-indigo-400 ring-2 ring-indigo-400/30 scale-[1.03]" : isDark ? "border-white/10 hover:border-white/25 hover:scale-[1.02]" : "border-black/10 hover:border-black/20 hover:scale-[1.02]"}`}
                   >
                     <div
@@ -3733,7 +3777,7 @@ export default function App() {
                     {(["none", "grid", "dots", "hex", "crosshatch"] as const).map((p) => (
                       <button
                         key={p}
-                        onClick={() => setBackground((b) => ({ ...b, name: "Personalizado", pattern: p }))}
+                        onClick={() => applyBackground((b) => ({ ...b, name: "Personalizado", pattern: p }))}
                         className={`rounded-lg px-3 py-1.5 text-xs font-medium border transition ${background.pattern === p ? "border-indigo-400 bg-indigo-500/20 text-indigo-300" : isDark ? "border-white/10 bg-white/5 hover:bg-white/10 text-slate-300" : "border-black/10 bg-white hover:bg-slate-100 text-slate-700"}`}
                       >
                         {p === "none"
@@ -3755,7 +3799,7 @@ export default function App() {
                 >
                   <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">Animação</p>
                   <button
-                    onClick={() => setBackground((b) => ({ ...b, name: "Personalizado", animated: !b.animated }))}
+                    onClick={() => applyBackground((b) => ({ ...b, name: "Personalizado", animated: !b.animated }))}
                     className={`rounded-xl border px-4 py-2 text-sm font-medium transition w-full ${background.animated ? "border-indigo-400 bg-indigo-500/20 text-indigo-300" : isDark ? "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10" : "border-black/10 bg-white text-slate-700 hover:bg-slate-100"}`}
                   >
                     {background.animated ? "✦ Ativada — aurora suave" : "○ Desativada — estático"}
@@ -3774,32 +3818,40 @@ export default function App() {
                   <ColorInput
                     label="Base"
                     value={background.baseDark}
-                    onChange={(v) => setBackground((b) => ({ ...b, name: "Personalizado", baseDark: v }))}
+                    onChange={(v) => applyBackground((b) => ({ ...b, name: "Personalizado", baseDark: v }))}
                   />
                   <ColorInput
                     label="Base clara"
                     value={background.baseLight}
-                    onChange={(v) => setBackground((b) => ({ ...b, name: "Personalizado", baseLight: v }))}
+                    onChange={(v) => applyBackground((b) => ({ ...b, name: "Personalizado", baseLight: v }))}
                   />
                   <ColorInput
                     label="Brilho A"
                     value={rgbaToHex(background.glowA)}
-                    onChange={(v) => setBackground((b) => ({ ...b, name: "Personalizado", glowA: hexToRgba(v, 0.65) }))}
+                    onChange={(v) =>
+                      applyBackground((b) => ({ ...b, name: "Personalizado", glowA: hexToRgba(v, 0.65) }))
+                    }
                   />
                   <ColorInput
                     label="Brilho B"
                     value={rgbaToHex(background.glowB)}
-                    onChange={(v) => setBackground((b) => ({ ...b, name: "Personalizado", glowB: hexToRgba(v, 0.55) }))}
+                    onChange={(v) =>
+                      applyBackground((b) => ({ ...b, name: "Personalizado", glowB: hexToRgba(v, 0.55) }))
+                    }
                   />
                   <ColorInput
                     label="Brilho C"
                     value={rgbaToHex(background.glowC ?? "#000000")}
-                    onChange={(v) => setBackground((b) => ({ ...b, name: "Personalizado", glowC: hexToRgba(v, 0.4) }))}
+                    onChange={(v) =>
+                      applyBackground((b) => ({ ...b, name: "Personalizado", glowC: hexToRgba(v, 0.4) }))
+                    }
                   />
                   <ColorInput
                     label="Brilho D"
                     value={rgbaToHex(background.glowD ?? "#000000")}
-                    onChange={(v) => setBackground((b) => ({ ...b, name: "Personalizado", glowD: hexToRgba(v, 0.3) }))}
+                    onChange={(v) =>
+                      applyBackground((b) => ({ ...b, name: "Personalizado", glowD: hexToRgba(v, 0.3) }))
+                    }
                   />
                 </div>
               </div>

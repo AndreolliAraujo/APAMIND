@@ -88,6 +88,64 @@ export interface MEdge {
   routing?: EdgeRouting;
 }
 
+export type BackgroundPattern = "none" | "grid" | "dots" | "hex" | "crosshatch";
+
+/** Fundo do mapa, em formato puro (sem dependência de UI). */
+export interface MapBackground {
+  name: string;
+  baseDark: string;
+  baseLight: string;
+  glowA: string;
+  glowB: string;
+  glowC?: string;
+  glowD?: string;
+  pattern?: BackgroundPattern;
+  animated?: boolean;
+}
+
+/** Tema do mapa: claro/escuro + fundo. Persistido junto com o mapa. */
+export interface MapTheme {
+  dark: boolean;
+  background: MapBackground;
+}
+
+const BACKGROUND_PATTERNS = new Set<string>(["none", "grid", "dots", "hex", "crosshatch"]);
+
+function isNonEmpty(v: unknown): v is string {
+  return typeof v === "string" && v.length > 0;
+}
+
+/**
+ * Valida e normaliza um tema vindo do armazenamento/importação.
+ * Devolve undefined quando o formato não é confiável (o chamador ignora).
+ */
+export function sanitizeMapTheme(raw: unknown): MapTheme | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const candidate = raw as Record<string, unknown>;
+  if (typeof candidate.dark !== "boolean") return undefined;
+  const bg = candidate.background;
+  if (!bg || typeof bg !== "object") return undefined;
+  const b = bg as Record<string, unknown>;
+  if (!isNonEmpty(b.name) || !isNonEmpty(b.baseDark) || !isNonEmpty(b.baseLight)) return undefined;
+  if (!isNonEmpty(b.glowA) || !isNonEmpty(b.glowB)) return undefined;
+  return {
+    dark: candidate.dark,
+    background: {
+      name: b.name,
+      baseDark: b.baseDark,
+      baseLight: b.baseLight,
+      glowA: b.glowA,
+      glowB: b.glowB,
+      ...(isNonEmpty(b.glowC) ? { glowC: b.glowC } : {}),
+      ...(isNonEmpty(b.glowD) ? { glowD: b.glowD } : {}),
+      ...(typeof b.pattern === "string" && BACKGROUND_PATTERNS.has(b.pattern)
+        ? { pattern: b.pattern as BackgroundPattern }
+        : {}),
+      ...(typeof b.animated === "boolean" ? { animated: b.animated } : {}),
+    },
+  };
+}
+
 export interface MMap {
   id: string;
   title: string;
@@ -96,6 +154,8 @@ export interface MMap {
   schemaVersion?: number;
   // Último modelo de organização aplicado (define desenho das conexões e decoração).
   layoutPreset?: LayoutPresetId;
+  // Tema próprio do mapa (claro/escuro + fundo); ausente = herda o atual.
+  theme?: MapTheme;
   nodes: MNode[];
   edges: MEdge[];
   collapsedIds?: string[];

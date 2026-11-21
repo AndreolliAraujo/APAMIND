@@ -215,3 +215,130 @@ describe("App: template Minimalista", () => {
     expect(screen.getByTestId(minimalTipId(child.id)).closest("g")!.textContent).toContain("1");
   });
 });
+
+const BACKGROUND_DARK = {
+  name: "Escuro",
+  baseDark: "#112233",
+  baseLight: "#FFFFFF",
+  glowA: "rgba(0,0,0,0)",
+  glowB: "rgba(0,0,0,0)",
+  pattern: "none" as const,
+  animated: false,
+};
+
+const BACKGROUND_LIGHT = {
+  name: "Claro",
+  baseDark: "#000000",
+  baseLight: "#ABCDEF",
+  glowA: "rgba(0,0,0,0)",
+  glowB: "rgba(0,0,0,0)",
+  pattern: "none" as const,
+  animated: false,
+};
+
+describe("App: tema por mapa", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    delete (window as { __TAURI__?: unknown }).__TAURI__;
+    vi.restoreAllMocks();
+  });
+
+  const mainBackground = () => document.querySelector("main")!.style.backgroundColor;
+
+  it("abre com o tema gravado no mapa ativo", async () => {
+    const map = { ...createMap("Escuro", "Livre"), theme: { dark: true, background: BACKGROUND_DARK } };
+    localStorage.setItem("apamind.v6", JSON.stringify({ active: map.id, maps: [map] }));
+
+    render(<App />);
+    await screen.findByTestId("canvas");
+    await waitFor(() => expect(mainBackground()).toBe("rgb(17, 34, 51)"));
+  });
+
+  it("aplica o tema de cada mapa ao trocar de mapa", async () => {
+    const dark = { ...createMap("Escuro", "Livre"), theme: { dark: true, background: BACKGROUND_DARK } };
+    const light = { ...createMap("Claro", "Livre"), theme: { dark: false, background: BACKGROUND_LIGHT } };
+    localStorage.setItem("apamind.v6", JSON.stringify({ active: dark.id, maps: [dark, light] }));
+
+    render(<App />);
+    await screen.findByTestId("canvas");
+    await waitFor(() => expect(mainBackground()).toBe("rgb(17, 34, 51)"));
+
+    // A lista de mapas fica na barra lateral (fechada por padrão).
+    fireEvent.click(screen.getAllByRole("button", { name: "Alternar barra lateral" })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: "Claro" }));
+    await waitFor(() => expect(mainBackground()).toBe("rgb(171, 205, 239)"));
+  });
+
+  it("grava no mapa o tema ajustado e mantém no autosave", async () => {
+    const map = { ...createMap("Escuro", "Livre"), theme: { dark: true, background: BACKGROUND_DARK } };
+    localStorage.setItem("apamind.v6", JSON.stringify({ active: map.id, maps: [map] }));
+
+    render(<App />);
+    await screen.findByTestId("canvas");
+    fireEvent.click(screen.getByRole("button", { name: "Alternar tema claro/escuro" }));
+
+    await waitFor(
+      () => {
+        const saved = JSON.parse(localStorage.getItem("apamind.v6")!);
+        expect(saved.maps[0].theme).toMatchObject({ dark: false });
+        expect(saved.maps[0].theme.background.name).toBe("Escuro");
+      },
+      { timeout: 3000 },
+    );
+  });
+
+  it("criar um mapa Minimalista não muda o tema dos outros mapas", async () => {
+    const existing = createMap("Existente", "Livre");
+    localStorage.setItem("apamind.v6", JSON.stringify({ active: existing.id, maps: [existing] }));
+
+    render(<App />);
+    await screen.findByTestId("canvas");
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Novo" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Minimalista" }));
+    fireEvent.click(screen.getByRole("button", { name: "Criar mapa" }));
+
+    await waitFor(
+      () => {
+        const saved = JSON.parse(localStorage.getItem("apamind.v6")!);
+        expect(saved.maps).toHaveLength(2);
+        const minimal = saved.maps.find((m: { template: string }) => m.template === "Minimalista");
+        expect(minimal.theme).toMatchObject({ dark: false });
+        expect(minimal.theme.background.name).toBe("Minimalista");
+        const other = saved.maps.find((m: { template: string }) => m.template !== "Minimalista");
+        expect(other.theme).toBeUndefined();
+      },
+      { timeout: 3000 },
+    );
+    expect(mainBackground()).toBe("rgb(248, 250, 252)");
+  });
+
+  it("voltar para um mapa sem tema não herda o fundo do Minimalista", async () => {
+    const minimal = {
+      ...createMap("Mini", "Minimalista"),
+      theme: {
+        dark: false,
+        background: {
+          name: "Minimalista",
+          baseDark: "#F8FAFC",
+          baseLight: "#F8FAFC",
+          glowA: "rgba(248,250,252,0)",
+          glowB: "rgba(248,250,252,0)",
+          pattern: "none" as const,
+          animated: false,
+        },
+      },
+    };
+    const legacy = createMap("Existente", "Livre");
+    localStorage.setItem("apamind.v6", JSON.stringify({ active: minimal.id, maps: [minimal, legacy] }));
+
+    render(<App />);
+    await screen.findByTestId("canvas");
+    await waitFor(() => expect(mainBackground()).toBe("rgb(248, 250, 252)"));
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Alternar barra lateral" })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: "Existente" }));
+    // Mapa antigo, sem tema gravado: volta ao padrão do app, não ao Minimalista.
+    await waitFor(() => expect(mainBackground()).toBe("rgb(8, 10, 18)"));
+  });
+});

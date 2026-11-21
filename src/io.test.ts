@@ -179,6 +179,26 @@ describe("importação e exportação", () => {
     expect(validateMMap(broken).ok).toBe(false);
   });
 
+  it("preserva o tema do mapa na importação", async () => {
+    const theme = {
+      dark: true,
+      background: {
+        name: "Custom",
+        baseDark: "#101820",
+        baseLight: "#F0F4F8",
+        glowA: "rgba(0,0,0,0)",
+        glowB: "rgba(0,0,0,0)",
+        pattern: "dots" as const,
+        animated: false,
+      },
+    };
+    const original = { ...sampleMap(), theme };
+    const imported = await importFile(file("theme.apamind.json", serializeMapJSON(original)));
+    expect(imported).toMatchObject({ ok: true, kind: "map" });
+    if (!imported.ok || imported.kind !== "map") return;
+    expect(imported.map.theme).toEqual(theme);
+  });
+
   it("aceita e preserva o template Minimalista na importação", async () => {
     const minimal = createMap("Minimal", "Minimalista");
     const imported = await importFile(file("minimal.apamind.json", serializeMapJSON(minimal)));

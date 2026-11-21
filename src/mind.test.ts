@@ -451,6 +451,40 @@ describe("loadWs / saveWs", () => {
     expect(ws.maps[0].nodes[0].shape).toBe("card");
   });
 
+  it("migrateWorkspace preserva o tema do mapa", () => {
+    localStorage.clear();
+    const theme = {
+      dark: false,
+      background: {
+        name: "Minimalista",
+        baseDark: "#F8FAFC",
+        baseLight: "#F8FAFC",
+        glowA: "rgba(248,250,252,0)",
+        glowB: "rgba(248,250,252,0)",
+        pattern: "none",
+        animated: false,
+      },
+    };
+    localStorage.setItem(
+      "apamind.v6",
+      JSON.stringify({
+        active: "m3",
+        maps: [
+          {
+            id: "m3",
+            title: "Com tema",
+            template: "Minimalista",
+            ts: "2024-01-01T00:00:00.000Z",
+            theme,
+            nodes: [{ id: "n1", title: "Raiz", x: 0, y: 0, tone: 0, shape: "card", note: "" }],
+            edges: [],
+          },
+        ],
+      }),
+    );
+    expect(loadWs().maps[0].theme).toEqual(theme);
+  });
+
   it("migrateWorkspace preserva o modelo de organizacao aplicado", () => {
     localStorage.clear();
     localStorage.setItem(

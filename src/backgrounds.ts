@@ -1,14 +1,8 @@
-export type BackgroundPreset = {
-  name: string;
-  baseDark: string;
-  baseLight: string;
-  glowA: string;
-  glowB: string;
-  glowC?: string;
-  glowD?: string;
-  pattern?: "none" | "grid" | "dots" | "hex" | "crosshatch";
-  animated?: boolean;
-};
+import type { BackgroundPattern, MapBackground } from "./core/model";
+
+export type BackgroundPreset = MapBackground;
+
+export type { BackgroundPattern };
 
 export const PATTERN_CSS: Record<string, string> = {
   grid: "linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)",
