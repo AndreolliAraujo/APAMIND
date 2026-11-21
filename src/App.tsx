@@ -1535,54 +1535,6 @@ export default function App() {
 
             <div className={`mx-5 mt-4 h-px ${isDark ? "bg-white/6" : "bg-black/6"}`} />
 
-            {/* Layout automático */}
-            <div className="px-4 mt-4">
-              <div className="flex items-center justify-between mb-3">
-                <p
-                  className={`text-[11px] font-semibold uppercase tracking-widest ${isDark ? "text-slate-500" : "text-slate-400"}`}
-                >
-                  Layout automático
-                </p>
-                <button
-                  onClick={() => setShowLayoutModal(true)}
-                  className="text-[11px] font-medium text-indigo-400 hover:text-indigo-300 transition"
-                >
-                  Ver todos →
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                {(
-                  [
-                    { mode: "mindmap", icon: "🧠", label: "Mapa Mental" },
-                    { mode: "org", icon: "🏢", label: "Organograma" },
-                    { mode: "tree", icon: "🌳", label: "Árvore" },
-                    { mode: "radial", icon: "🎯", label: "Radial" },
-                    { mode: "flow", icon: "➡️", label: "Fluxo" },
-                    { mode: "timeline", icon: "📅", label: "Linha do Tempo" },
-                  ] as const
-                ).map(({ mode, icon, label }) => (
-                  <button
-                    key={mode}
-                    onClick={() => applyLayout(mode)}
-                    className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-[13px] font-medium transition hover:border-indigo-400/60 hover:text-indigo-300 ${btn}`}
-                  >
-                    <span className="text-base leading-none">{icon}</span>
-                    <span className="truncate">{label}</span>
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={() => setShowLayoutModal(true)}
-                className={`mt-2.5 w-full rounded-xl border border-indigo-500/25 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 px-3 py-2.5 text-[13px] font-medium transition`}
-              >
-                🪄 Auto-organizar com modelo…
-              </button>
-            </div>
-
-            <div className={`mx-5 mt-4 h-px ${isDark ? "bg-white/6" : "bg-black/6"}`} />
-
             {/* Atalhos */}
             <div className="px-4 mt-4 pb-5">
               <p
