@@ -1577,7 +1577,12 @@ export default function App() {
         {/* ─── MAIN AREA ────────────────────────────── */}
         <section className="flex-1 flex flex-col min-w-0">
           {/* Toolbar */}
-          <header className={`flex h-14 items-center justify-between border-b px-3 md:px-5 gap-2 ${panel}`}>
+          {/* z-20: o backdrop-blur do painel cria stacking context; sem um z-index
+              explícito o canvas (posicionado, depois no DOM) fica por cima e engole
+              os cliques do popup de busca que transborda o header. */}
+          <header
+            className={`relative z-20 flex h-14 items-center justify-between border-b px-3 md:px-5 gap-2 ${panel}`}
+          >
             <div className="flex items-center gap-2 min-w-0">
               <button
                 onClick={() => setSidebarOpen((s) => !s)}
@@ -1684,6 +1689,8 @@ export default function App() {
                 </button>
                 {searchOpen && (
                   <div
+                    role="dialog"
+                    aria-label="Busca de nós"
                     className={`absolute right-0 top-full mt-1 z-50 rounded-2xl border shadow-2xl p-3 flex flex-col gap-2 ${isDark ? "border-white/10 bg-slate-900/95 backdrop-blur-xl" : "border-black/10 bg-white/95 backdrop-blur-xl"}`}
                     style={{ width: 280 }}
                     onMouseDown={(ev) => ev.stopPropagation()}
@@ -1746,11 +1753,13 @@ export default function App() {
                                 ev.stopPropagation();
                               }}
                               onClick={() => {
-                                setSearchIdx(i);
                                 setSel(new Set([n.id]));
                                 setInspectorOpen(false);
                                 const r = canvasRef.current?.getBoundingClientRect();
                                 if (r) setVp({ x: r.width / 2 - n.x * 1.2, y: r.height / 2 - n.y * 1.2, zoom: 1.2 });
+                                setSearchOpen(false);
+                                setSearchQuery("");
+                                setSearchIdx(0);
                               }}
                               className={`w-full text-left rounded-xl px-3 py-2 text-sm transition ${
                                 i === searchIdx

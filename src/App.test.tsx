@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
@@ -44,5 +44,30 @@ describe("App: atalhos de teclado", () => {
 
     fireEvent.wheel(canvas, { deltaY: -100, clientX: 10, clientY: 10 });
     await waitFor(() => expect(zoomPercentual()).toBe(Math.round((inicial / 100) * 0.92 * 1.08 * 100)));
+  });
+});
+
+describe("App: busca de nós", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    delete (window as { __TAURI__?: unknown }).__TAURI__;
+    vi.restoreAllMocks();
+  });
+
+  it("fecha o popup e navega ao clicar em um resultado", async () => {
+    render(<App />);
+    await screen.findByTestId("canvas");
+
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    const dialog = screen.getByRole("dialog", { name: "Busca de nós" });
+    fireEvent.change(within(dialog).getByPlaceholderText("Buscar nos nós…"), {
+      target: { value: "ob" },
+    });
+
+    fireEvent.click(await within(dialog).findByRole("button", { name: /Objetivo/ }));
+
+    // O popup some ao escolher o resultado e o canvas navega até o nó (zoom 120%).
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Busca de nós" })).toBeNull());
+    expect(screen.getByTestId("zoom-level").textContent?.replace(/\D/g, "")).toBe("120");
   });
 });
