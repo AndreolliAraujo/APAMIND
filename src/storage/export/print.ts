@@ -1,6 +1,7 @@
 import type { MMap } from "../../core/model";
 import { edgePath } from "../../core/geometry";
 import { esc } from "./files";
+import { minimalDocument } from "./minimalMarkup";
 
 // ── Print ─────────────────────────────────────────────────────────
 export function printMap(map: MMap, themeDark = true) {
@@ -18,6 +19,15 @@ export function printMap(map: MMap, themeDark = true) {
   const w = maxX - minX || 1,
     h = maxY - minY || 1;
 
+  if (map.template === "Minimalista") {
+    const win = window.open("", "_blank", "noopener,noreferrer");
+    if (win) {
+      win.document.write(minimalDocument(map, { minX, minY, width: w, height: h, print: true }));
+      win.document.close();
+    }
+    return;
+  }
+
   let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><title>${esc(map.title)}</title><style>
     @media print{body{margin:0}}
     body{margin:0;background:${bg};font-family:sans-serif}
@@ -31,7 +41,7 @@ export function printMap(map: MMap, themeDark = true) {
     const s = map.nodes.find((n) => n.id === e.source);
     const t = map.nodes.find((n) => n.id === e.target);
     if (!s || !t) return;
-    html += `<path d="${edgePath(s.x - minX, s.y - minY, t.x - minX, t.y - minY)}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round"/>`;
+    html += `<path d="${edgePath(s.x - minX, s.y - minY, t.x - minX, t.y - minY, e.routing)}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round"/>`;
   });
   html += `</svg>`;
   map.nodes.forEach((n) => {

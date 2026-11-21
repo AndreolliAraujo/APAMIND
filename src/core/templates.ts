@@ -2,6 +2,7 @@
 
 import type { MMap, TemplateName } from "./model";
 import { mkEdge, mkNode, uid } from "./model";
+import { autoLayoutMinimal } from "./layout";
 
 // ── Templates ─────────────────────────────────────────────────────
 function tplModeloA(t: string) {
@@ -233,6 +234,20 @@ function tplTimeline(t: string) {
   return { nodes: ns, edges: ns.slice(0, -1).map((_, i) => mkEdge(ns[i].id, ns[i + 1].id)) };
 }
 
+function tplMinimalista(t: string) {
+  // Começo enxuto: raiz central e quatro ramos de texto puro. O arranjo é o
+  // bilateral do próprio template (duas colunas de cada lado).
+  const c = mkNode(t, "Comece por uma ideia", 500, 380, 0, "capsule");
+  const ns = [
+    mkNode("Primeira ideia", "Nota curta de apoio", 860, 300, 1, "card"),
+    mkNode("Segunda ideia", "", 860, 480, 2, "card"),
+    mkNode("Ramo à esquerda", "", 140, 300, 3, "card"),
+    mkNode("Outro ramo", "", 140, 480, 4, "card"),
+  ];
+  const edges = ns.map((n) => mkEdge(c.id, n.id));
+  return { nodes: autoLayoutMinimal([c, ...ns], edges, c.id), edges };
+}
+
 function buildTpl(title: string, tpl: TemplateName) {
   switch (tpl) {
     case "Modelo A":
@@ -259,6 +274,8 @@ function buildTpl(title: string, tpl: TemplateName) {
       return tplKanban(title);
     case "Timeline":
       return tplTimeline(title);
+    case "Minimalista":
+      return tplMinimalista(title);
     default:
       return tplModeloA(title);
   }

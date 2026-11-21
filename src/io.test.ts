@@ -166,6 +166,61 @@ describe("importação e exportação", () => {
     expect(await importXMind(file("empty.xmind", emptyZip))).toMatchObject({ ok: false });
   });
 
+  it("preserva a geometria da conexão na importação e recusa routing desconhecido", async () => {
+    const routed = sampleMap();
+    routed.edges[0].routing = "ortho";
+    const imported = await importFile(file("routing.apamind.json", serializeMapJSON(routed)));
+    expect(imported).toMatchObject({ ok: true, kind: "map" });
+    if (!imported.ok || imported.kind !== "map") return;
+    expect(imported.map.edges[0].routing).toBe("ortho");
+
+    const broken = sampleMap();
+    (broken.edges[0] as { routing?: string }).routing = "zigzag";
+    expect(validateMMap(broken).ok).toBe(false);
+  });
+
+  it("preserva o tema do mapa na importação", async () => {
+    const theme = {
+      dark: true,
+      background: {
+        name: "Custom",
+        baseDark: "#101820",
+        baseLight: "#F0F4F8",
+        glowA: "rgba(0,0,0,0)",
+        glowB: "rgba(0,0,0,0)",
+        pattern: "dots" as const,
+        animated: false,
+      },
+    };
+    const original = { ...sampleMap(), theme };
+    const imported = await importFile(file("theme.apamind.json", serializeMapJSON(original)));
+    expect(imported).toMatchObject({ ok: true, kind: "map" });
+    if (!imported.ok || imported.kind !== "map") return;
+    expect(imported.map.theme).toEqual(theme);
+  });
+
+  it("aceita e preserva o template Minimalista na importação", async () => {
+    const minimal = createMap("Minimal", "Minimalista");
+    const imported = await importFile(file("minimal.apamind.json", serializeMapJSON(minimal)));
+    expect(imported).toMatchObject({ ok: true, kind: "map" });
+    if (!imported.ok || imported.kind !== "map") return;
+    expect(imported.map.template).toBe("Minimalista");
+    expect(imported.map.nodes).toHaveLength(5);
+  });
+
+  it("preserva o modelo de organização aplicado e descarta valor desconhecido", async () => {
+    const organised = { ...sampleMap(), layoutPreset: "timeline" as const };
+    const imported = await importFile(file("preset.apamind.json", serializeMapJSON(organised)));
+    expect(imported).toMatchObject({ ok: true, kind: "map" });
+    if (!imported.ok || imported.kind !== "map") return;
+    expect(imported.map.layoutPreset).toBe("timeline");
+
+    const unknown = { ...sampleMap(), layoutPreset: "zigzag" } as unknown as Parameters<typeof validateMMap>[0];
+    const validated = validateMMap(unknown);
+    expect(validated.ok).toBe(true);
+    if (validated.ok) expect(validated.map.layoutPreset).toBeUndefined();
+  });
+
   it("migrates the deprecated links field into url attachments", () => {
     const legacy = {
       ...sampleMap(),

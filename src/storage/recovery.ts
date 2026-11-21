@@ -4,6 +4,7 @@
 import {
   SCHEMA_VERSION,
   legacyLinksToAttachments,
+  sanitizeMapTheme,
   uid,
   type EdgeStyle,
   type NodeShape,
@@ -45,33 +46,38 @@ export function migrateWorkspace(ws: Workspace): Workspace {
     return { active: m.id, maps: [m] };
   }
   // Garante defaults seguros em cada mapa/no
-  const maps = ws.maps.map((m) => ({
-    id: m.id || uid("map"),
-    title: m.title || "Mapa sem título",
-    template: m.template || "Livre",
-    ts: m.ts || new Date().toISOString(),
-    schemaVersion: SCHEMA_VERSION,
-    nodes: (m.nodes || []).map((n) => ({
-      ...n,
-      // Campos opcionais adicionados em versoes posteriores
-      note: typeof n.note === "string" ? n.note : "",
-      markdown: typeof n.markdown === "string" ? n.markdown : undefined,
-      checklist: Array.isArray(n.checklist) ? n.checklist : undefined,
-      icon: typeof n.icon === "string" ? n.icon : undefined,
-      links: undefined,
-      attachments: legacyLinksToAttachments(n.attachments, (n as { links?: unknown }).links),
-      shape: (n.shape as NodeShape) || "card",
-      tone: typeof n.tone === "number" ? n.tone : 0,
-      scale: typeof n.scale === "number" ? n.scale : undefined,
-      borderColor: typeof n.borderColor === "string" ? n.borderColor : undefined,
-      x: Number.isFinite(n.x) ? n.x : 0,
-      y: Number.isFinite(n.y) ? n.y : 0,
-    })),
-    edges: (m.edges || []).map((e) => ({
-      ...e,
-      style: (e.style as EdgeStyle) || "solid",
-    })),
-  }));
+  const maps = ws.maps.map((m) => {
+    const theme = sanitizeMapTheme(m.theme);
+    return {
+      id: m.id || uid("map"),
+      title: m.title || "Mapa sem título",
+      template: m.template || "Livre",
+      ts: m.ts || new Date().toISOString(),
+      schemaVersion: SCHEMA_VERSION,
+      ...(m.layoutPreset ? { layoutPreset: m.layoutPreset } : {}),
+      ...(theme ? { theme } : {}),
+      nodes: (m.nodes || []).map((n) => ({
+        ...n,
+        // Campos opcionais adicionados em versoes posteriores
+        note: typeof n.note === "string" ? n.note : "",
+        markdown: typeof n.markdown === "string" ? n.markdown : undefined,
+        checklist: Array.isArray(n.checklist) ? n.checklist : undefined,
+        icon: typeof n.icon === "string" ? n.icon : undefined,
+        links: undefined,
+        attachments: legacyLinksToAttachments(n.attachments, (n as { links?: unknown }).links),
+        shape: (n.shape as NodeShape) || "card",
+        tone: typeof n.tone === "number" ? n.tone : 0,
+        scale: typeof n.scale === "number" ? n.scale : undefined,
+        borderColor: typeof n.borderColor === "string" ? n.borderColor : undefined,
+        x: Number.isFinite(n.x) ? n.x : 0,
+        y: Number.isFinite(n.y) ? n.y : 0,
+      })),
+      edges: (m.edges || []).map((e) => ({
+        ...e,
+        style: (e.style as EdgeStyle) || "solid",
+      })),
+    };
+  });
   const activeId = ws.active && maps.some((m) => m.id === ws.active) ? ws.active : (maps[0]?.id ?? "");
   return { active: activeId, maps };
 }

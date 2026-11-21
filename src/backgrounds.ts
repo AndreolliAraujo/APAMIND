@@ -1,14 +1,8 @@
-export type BackgroundPreset = {
-  name: string;
-  baseDark: string;
-  baseLight: string;
-  glowA: string;
-  glowB: string;
-  glowC?: string;
-  glowD?: string;
-  pattern?: "none" | "grid" | "dots" | "hex" | "crosshatch";
-  animated?: boolean;
-};
+import type { BackgroundPattern, MapBackground } from "./core/model";
+
+export type BackgroundPreset = MapBackground;
+
+export type { BackgroundPattern };
 
 export const PATTERN_CSS: Record<string, string> = {
   grid: "linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)",
@@ -119,6 +113,20 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     animated: true,
   },
 ];
+
+/**
+ * Fundo fixo do template Minimalista: neutro, opaco e sem brilho nem textura.
+ * O template usa este valor mesmo que o mapa esteja no tema escuro.
+ */
+export const MINIMAL_BACKGROUND: BackgroundPreset = {
+  name: "Minimalista",
+  baseDark: "#F8FAFC",
+  baseLight: "#F8FAFC",
+  glowA: "rgba(248,250,252,0)",
+  glowB: "rgba(248,250,252,0)",
+  pattern: "none",
+  animated: false,
+};
 
 export function rgbaToHex(value: string): string {
   const match = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);

@@ -3,11 +3,13 @@ import { mkEdge, mkNode } from "./core/model";
 import { createMap } from "./core/templates";
 import {
   addNodeToMap,
+  applyEdgeRoutingToAllEdges,
   copyMapSelection,
   pasteMapSelection,
   removeEdgeFromMap,
   removeMapFromWorkspace,
   removeNodesFromMap,
+  updateEdgeRoutingInMap,
   updateNodeInMap,
 } from "./mapOperations";
 
@@ -53,6 +55,33 @@ describe("map operations", () => {
     const changed = removeEdgeFromMap(map, map.edges[0].id);
     expect(changed.edges).toEqual([]);
     expect(changed.nodes).toEqual(map.nodes);
+  });
+
+  it("aplica geometria por conexão e em todas sem tocar nos nós", () => {
+    const map = mapWithTwoNodes();
+    const edgeId = map.edges[0].id;
+
+    // Curva é o padrão: pedir curva de novo devolve o mesmo mapa (sem undo vazio).
+    expect(updateEdgeRoutingInMap(map, edgeId, "curve")).toBe(map);
+
+    const orthogonal = updateEdgeRoutingInMap(map, edgeId, "ortho");
+    expect(orthogonal.edges[0].routing).toBe("ortho");
+    expect(orthogonal.edges[0].style).toBe("dashed");
+    expect(orthogonal.nodes).toBe(map.nodes);
+    expect(updateEdgeRoutingInMap(orthogonal, edgeId, "ortho")).toBe(orthogonal);
+
+    const allStraight = applyEdgeRoutingToAllEdges(orthogonal, "straight");
+    expect(allStraight.edges.every((edge) => edge.routing === "straight")).toBe(true);
+    expect(allStraight.nodes).toBe(map.nodes);
+    expect(applyEdgeRoutingToAllEdges(allStraight, "straight")).toBe(allStraight);
+  });
+
+  it("preserva a geometria da conexão ao copiar e colar", () => {
+    const source = mapWithTwoNodes();
+    const routed = updateEdgeRoutingInMap(source, source.edges[0].id, "ortho");
+    const clipboard = copyMapSelection(routed, new Set(routed.nodes.map((node) => node.id)))!;
+    const result = pasteMapSelection(createMap("Destination", "Livre"), clipboard);
+    expect(result.map.edges.at(-1)!.routing).toBe("ortho");
   });
 
   it("pastes the copied selection and its internal edges using fresh endpoint IDs", () => {

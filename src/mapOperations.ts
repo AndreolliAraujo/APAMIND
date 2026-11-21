@@ -1,4 +1,4 @@
-import type { MEdge, MMap, MNode, Workspace } from "./core/model";
+import type { EdgeRouting, MEdge, MMap, MNode, Workspace } from "./core/model";
 import { mkEdge, uid } from "./core/model";
 import { createMap } from "./core/templates";
 
@@ -34,6 +34,22 @@ export function removeEdgeFromMap(map: MMap, edgeId: string): MMap {
   return { ...map, edges: map.edges.filter((edge) => edge.id !== edgeId) };
 }
 
+// Geometria da conexão: `curve` é o default, então comparar o valor efetivo
+// evita gravar um campo novo (e um passo de undo) quando nada mudaria.
+export function updateEdgeRoutingInMap(map: MMap, edgeId: string, routing: EdgeRouting): MMap {
+  const target = map.edges.find((edge) => edge.id === edgeId);
+  if (!target || (target.routing ?? "curve") === routing) return map;
+  return {
+    ...map,
+    edges: map.edges.map((edge) => (edge.id === edgeId ? { ...edge, routing } : edge)),
+  };
+}
+
+export function applyEdgeRoutingToAllEdges(map: MMap, routing: EdgeRouting): MMap {
+  if (map.edges.every((edge) => (edge.routing ?? "curve") === routing)) return map;
+  return { ...map, edges: map.edges.map((edge) => ({ ...edge, routing })) };
+}
+
 export function copyMapSelection(map: MMap, selectedIds: ReadonlySet<string>): MapClipboard | null {
   const nodes = map.nodes.filter((node) => selectedIds.has(node.id));
   if (!nodes.length) return null;
@@ -60,7 +76,7 @@ export function pasteMapSelection(
   const edges = clipboard.edges.flatMap((edge) => {
     const source = idMap.get(edge.source);
     const target = idMap.get(edge.target);
-    return source && target ? [mkEdge(source, target, edge.style)] : [];
+    return source && target ? [mkEdge(source, target, edge.style, edge.routing)] : [];
   });
   return {
     map: { ...map, nodes: [...map.nodes, ...nodes], edges: [...map.edges, ...edges] },

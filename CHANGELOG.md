@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.8.0 — 2026-11-21
+
+Primeira versão com o template **Minimalista** e com os modelos de organização refeitos.
+O formato persistido continua compatível: temas e o modelo aplicado são campos novos e
+opcionais, e mapas antigos abrem normalmente.
+
+### Novidades
+
+- **Template "Minimalista"**: mapa de texto puro, sem caixas, ícones ou sombras. Raiz central
+  em tipografia maior e ramos em blocos transparentes de largura fixa, com arranjo bilateral
+  (ramos alternados entre esquerda e direita) e espaçamento vertical proporcional ao texto.
+- **Conexões desenhadas por modelo**: o Minimalista usa uma curva curta que termina numa
+  reta sublinhando o texto, com lado e altura calculados pela posição real de cada nó e pelo
+  número de linhas do título/nota.
+- **Círculo interativo na ponta da linha**: recolhe e expande o ramo e mostra quantos
+  sub-itens ficaram ocultos, substituindo o botão `−` no template Minimalista.
+- **Conexões reta e ortogonal** em qualquer modelo, pelo menu da aresta, com opção de aplicar
+  a todas as conexões. A curva continua sendo o padrão e nada muda visualmente para quem não
+  mexe nessa opção.
+- **Modelos de organização fiéis à figura do card**: radial em anéis por profundidade, fluxo
+  em colunas por etapa, espinha de peixe com espinha e braços alternados, linha do tempo com
+  eixo e marcos alternados, grade com passo igual ao cartão. A miniatura de cada card é gerada
+  a partir do próprio modelo, então figura e resultado não divergem.
+- **Tema por mapa**: claro/escuro e fundo agora são gravados junto do mapa
+  (`theme`), sobrevivem a fechar e reabrir o aplicativo e não vazam de um mapa para outro.
+  Ajustes feitos no botão de tema e no painel de fundo são salvos no mapa ativo.
+- **Modelo de organização persistido** por mapa (`layoutPreset`), mantendo o desenho das
+  conexões e a decoração ao reabrir.
+
+### Correções
+
+- **Auto-organizar sem sobreposição**: a hierarquia passou a usar árvore tidy com caixa
+  conservadora dos nós, pai centralizado sobre os filhos e ordem dos ramos preservada.
+- **Espinha de Peixe lida ao contrário**: o template grava as causas apontando para o
+  problema, e os layouts tratavam isso como "nós soltos". A hierarquia agora é lida na
+  direção que sai da raiz.
+- **Mapa mental**: espaçamento corrigido (havia sobreposição de nós) e ramos além do
+  terceiro nível deixaram de ficar na posição antiga.
+- **Exportações** SVG, HTML, impressão e PNG desenham o visual do Minimalista sem caixas,
+  usando a mesma geometria do canvas.
+- **Watcher do dev server** não cai mais com `EBUSY` quando o editor grava arquivos de
+  forma atômica.
+
 ## 0.7.4 — 2026-11-16
 
 ### Correções

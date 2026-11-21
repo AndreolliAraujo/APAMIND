@@ -10,7 +10,9 @@ import {
   type MEdge,
   type TemplateName,
   type Attachment,
+  type EdgeRouting,
   type EdgeStyle,
+  type LayoutPresetId,
   type Workspace,
   TEMPLATES,
   ATTACH_TYPES,
@@ -24,17 +26,8 @@ import { collectBrokenMapLinks, countMapReferences, normalizeReferenceKey } from
 import { edgePath } from "./core/geometry";
 import { TONES, TONE_HEX, SHAPES, shapeClass } from "./ui/theme";
 import { createMap } from "./core/templates";
-import {
-  autoLayoutTree,
-  autoLayoutRadial,
-  autoLayoutFlow,
-  autoLayoutOrgChart,
-  autoLayoutFishbone,
-  autoLayoutMindMap,
-  autoLayoutTimeline,
-  autoLayoutGrid,
-  getTemplateLayout,
-} from "./core/layout";
+import { PRESETS, presetById, presetDecoration, presetEdgePath, timelineAxisY } from "./core/presets";
+import { PresetPreview } from "./components/PresetPreview";
 import {
   loadWs,
   saveWs,
@@ -64,23 +57,35 @@ import { normalizeSchemeLessWebAddress } from "./attachmentSecurity";
 import { openAttachment } from "./attachmentActions";
 import {
   addNodeToMap,
+  applyEdgeRoutingToAllEdges,
   copyMapSelection,
   pasteMapSelection,
   removeEdgeFromMap,
   removeMapFromWorkspace,
   removeNodesFromMap,
+  updateEdgeRoutingInMap,
   updateNodeInMap,
   type MapClipboard,
 } from "./mapOperations";
 import { createMapHistory, recordMapHistory, redoMapHistory, undoMapHistory } from "./mapHistory";
 import {
   BACKGROUND_PRESETS,
+  MINIMAL_BACKGROUND,
   PATTERN_CSS,
   PATTERN_SIZES,
   hexToRgba,
   rgbaToHex,
   type BackgroundPreset,
 } from "./backgrounds";
+import { MINIMAL_NODE_WIDTH, MINIMAL_THEME, isMinimalTemplate, minimalNodeClass, minimalNodeColor } from "./ui/minimal";
+import { MinimalNodeBody } from "./components/MinimalNodeBody";
+import {
+  minimalEdgeFor,
+  minimalEdgeHorizontal,
+  minimalEdgePath,
+  minimalHiddenCount,
+  minimalTipId,
+} from "./core/minimal";
 import { CloseFailureDialog, ColorInput, CtxBtn, EmojiPicker } from "./components/AppControls";
 import { RecoveryDialog } from "./components/RecoveryDialog";
 
@@ -108,6 +113,9 @@ type CtxMenu = {
   wx?: number;
   wy?: number;
 } | null;
+
+// Rótulos da geometria da conexão usados no menu de contexto.
+const ROUTING_LABELS: Record<EdgeRouting, string> = { curve: "Curva", straight: "Reta", ortho: "Ortogonal" };
 
 // ── Markdown renderer (simple) ─────────────────────────────────────
 
@@ -178,6 +186,19 @@ function renderMarkdown(text: string, onOpenUrl?: (url: string) => void) {
   });
 }
 
+// Tema padrão do app. Mapas antigos (sem tema próprio) usam este valor até o
+// usuário ajustar algo; a partir daí o tema fica gravado no mapa.
+const DEFAULT_BACKGROUND: BackgroundPreset = {
+  name: "Aurora",
+  baseDark: "#080a12",
+  baseLight: "#f5f2ec",
+  glowA: "rgba(99,102,241,.55)",
+  glowB: "rgba(244,114,182,.40)",
+  glowC: "rgba(45,212,191,.30)",
+  pattern: "none",
+  animated: true,
+};
+
 // ── Main App ───────────────────────────────────────────────────────
 
 function CloseSavingNotice({ open, slow }: { open: boolean; slow: boolean }) {
@@ -212,7 +233,6 @@ function CloseSavingNotice({ open, slow }: { open: boolean; slow: boolean }) {
 }
 
 export default function App() {
-  const [isDark, setIsDark] = useState(true);
   const [initialLoad] = useState(() => {
     try {
       return { workspace: loadWs(), error: null as string | null };
@@ -221,6 +241,13 @@ export default function App() {
       return { workspace: { active: placeholder.id, maps: [placeholder] }, error: String(e) };
     }
   });
+  // O tema é do mapa (persistido junto com ele); ao abrir, vale o do mapa ativo.
+  const [initialTheme] = useState(() => {
+    const workspace = initialLoad.workspace;
+    const activeMap = workspace.maps.find((m) => m.id === workspace.active) ?? workspace.maps[0];
+    return activeMap?.theme;
+  });
+  const [isDark, setIsDark] = useState(initialTheme?.dark ?? true);
   const [bootIssue, setBootIssue] = useState<string | null>(initialLoad.error);
   const [bootReady, setBootReady] = useState(false);
   const [conflict, setConflict] = useState<WorkspaceConflict | null>(null);
@@ -328,16 +355,7 @@ export default function App() {
   const [showChecklistModal, setShowChecklistModal] = useState(false);
   const [checklistNodeId, setChecklistNodeId] = useState<string | null>(null);
   const [newCheckItem, setNewCheckItem] = useState("");
-  const [background, setBackground] = useState<BackgroundPreset>({
-    name: "Aurora",
-    baseDark: "#080a12",
-    baseLight: "#f5f2ec",
-    glowA: "rgba(99,102,241,.55)",
-    glowB: "rgba(244,114,182,.40)",
-    glowC: "rgba(45,212,191,.30)",
-    pattern: "none",
-    animated: true,
-  });
+  const [background, setBackground] = useState<BackgroundPreset>(initialTheme?.background ?? DEFAULT_BACKGROUND);
 
   // Clipboard
   const [clipboard, setClipboard] = useState<MapClipboard | null>(null);
@@ -558,12 +576,43 @@ export default function App() {
   const btn = isDark
     ? "border-white/10 bg-white/5 hover:bg-white/10 text-slate-200"
     : "border-black/10 bg-white hover:bg-slate-50 text-slate-700";
-  const edgeClr = isDark ? "rgba(165,180,252,0.4)" : "rgba(79,70,229,0.3)";
-  const edgeHi = isDark ? "rgba(165,180,252,0.8)" : "rgba(79,70,229,0.7)";
+  // Modelo ativo: define o desenho das conexões e a decoração de fundo.
+  const activePreset = presetById(map.layoutPreset);
+  const decorationAxisY = activePreset?.edgeStyle === "timeline" ? timelineAxisY(map.nodes) : 0;
+  // Template Minimalista: ilha visual própria (fundo neutro, texto e linhas fixos).
+  const minimal = isMinimalTemplate(map.template);
+  const edgeClr = minimal ? MINIMAL_THEME.accent : isDark ? "rgba(165,180,252,0.4)" : "rgba(79,70,229,0.3)";
+  const edgeHi = minimal ? MINIMAL_THEME.accentHover : isDark ? "rgba(165,180,252,0.8)" : "rgba(79,70,229,0.7)";
 
   // ── Core helpers ─────────────────────────────────────
   function updMap(fn: (m: MMap) => MMap) {
     setWs((w) => ({ ...w, maps: w.maps.map((m) => (m.id === w.active ? fn(m) : m)) }));
+  }
+
+  // ── Tema por mapa ────────────────────────────────────
+  // O tema vive no mapa (MMap.theme) e é gravado pelo autosave; o estado
+  // isDark/background reflete o mapa ativo. Mapas antigos (sem tema) caem no
+  // padrão do app, para não herdarem o tema do mapa que estava aberto antes.
+  function applyMapTheme(target: MMap | undefined) {
+    const theme = target?.theme ?? { dark: true, background: DEFAULT_BACKGROUND };
+    setIsDark(theme.dark);
+    setBackground(theme.background);
+  }
+
+  function persistTheme(dark: boolean, bg: BackgroundPreset) {
+    updMap((m) => ({ ...m, theme: { dark, background: bg } }));
+  }
+
+  function applyBackground(next: BackgroundPreset | ((current: BackgroundPreset) => BackgroundPreset)) {
+    const value = typeof next === "function" ? next(background) : next;
+    setBackground(value);
+    persistTheme(isDark, value);
+  }
+
+  function toggleTheme() {
+    const next = !isDark;
+    setIsDark(next);
+    persistTheme(next, background);
   }
 
   function pushUndo() {
@@ -641,37 +690,20 @@ export default function App() {
   }
 
   // ── Auto layout ──────────────────────────────────────
-  type LayoutMode = "tree" | "radial" | "flow" | "org" | "fishbone" | "mindmap" | "timeline" | "grid";
-
-  function applyLayout(mode: LayoutMode) {
+  // Aplicar um modelo reproduz a figura do card: posições + geometria das
+  // conexões. Modelos com desenho próprio (espinha/eixo) deixam `routing`
+  // indefinido para o canvas desenhar, preservando o override por aresta.
+  function applyPreset(id: LayoutPresetId) {
+    const preset = presetById(id);
+    if (!preset) return;
     pushUndo();
     updMap((m) => {
-      const root = m.nodes[0]?.id;
-      const nodes =
-        mode === "tree"
-          ? autoLayoutTree(m.nodes, m.edges, root)
-          : mode === "org"
-            ? autoLayoutOrgChart(m.nodes, m.edges, root)
-            : mode === "fishbone"
-              ? autoLayoutFishbone(m.nodes, m.edges, root)
-              : mode === "radial"
-                ? autoLayoutRadial(m.nodes, m.edges, root)
-                : mode === "mindmap"
-                  ? autoLayoutMindMap(m.nodes, m.edges, root)
-                  : mode === "timeline"
-                    ? autoLayoutTimeline(m.nodes, m.edges)
-                    : mode === "grid"
-                      ? autoLayoutGrid(m.nodes)
-                      : autoLayoutFlow(m.nodes, m.edges);
-      return { ...m, nodes };
+      const nodes = preset.layout(m.nodes, m.edges, m.nodes[0]?.id);
+      const edges = m.edges.map((edge) => ({ ...edge, routing: preset.routing ?? undefined }));
+      return { ...m, nodes, edges, layoutPreset: id };
     });
     setShowLayoutModal(false);
     requestAnimationFrame(fitView);
-  }
-
-  function autoOrganize() {
-    const tpl = getTemplateLayout(map.template);
-    applyLayout(tpl === "none" ? "mindmap" : tpl);
   }
 
   // ── Focus on node with fade transition ───────────────
@@ -718,6 +750,20 @@ export default function App() {
   function updateEdgeStyle(id: string, style: EdgeStyle) {
     pushUndo();
     updMap((m) => ({ ...m, edges: m.edges.map((e) => (e.id === id ? { ...e, style } : e)) }));
+  }
+
+  // Geometria da conexão. Sem mudança efetiva não grava nada nem empilha undo.
+  function updateEdgeRouting(id: string, routing: EdgeRouting) {
+    const current = map.edges.find((e) => e.id === id);
+    if (!current || (current.routing ?? "curve") === routing) return;
+    pushUndo();
+    updMap((m) => updateEdgeRoutingInMap(m, id, routing));
+  }
+
+  function applyRoutingToAllEdges(routing: EdgeRouting) {
+    if (map.edges.every((e) => (e.routing ?? "curve") === routing)) return;
+    pushUndo();
+    updMap((m) => applyEdgeRoutingToAllEdges(m, routing));
   }
 
   function updateNodeFn(id: string, patch: Partial<MNode>) {
@@ -867,6 +913,7 @@ export default function App() {
         void saveWs(next);
         return next;
       });
+      applyMapTheme(map);
       setSel(new Set());
       setShowImport(false);
     };
@@ -883,6 +930,7 @@ export default function App() {
         void saveWs(next);
         return next;
       });
+      applyMapTheme(result.maps[0]);
       setShowImport(false);
       return;
     }
@@ -897,7 +945,15 @@ export default function App() {
   }
 
   function confirmCreate() {
-    const m = createMap(draftTitle.trim() || `Novo mapa ${ws.maps.length + 1}`, draftTpl);
+    const isMinimal = draftTpl === "Minimalista";
+    // O tema nasce com o mapa: Minimalista tem o seu próprio, os demais herdam
+    // o tema atual — e isso não altera o tema dos outros mapas.
+    const theme = isMinimal ? { dark: false, background: MINIMAL_BACKGROUND } : { dark: isDark, background };
+    const m = { ...createMap(draftTitle.trim() || `Novo mapa ${ws.maps.length + 1}`, draftTpl), theme };
+    if (isMinimal) {
+      setIsDark(false);
+      setBackground(MINIMAL_BACKGROUND);
+    }
     const newWs = { active: m.id, maps: [...ws.maps, m] };
     setWs(() => newWs);
     void saveWs(newWs).then((result) => {
@@ -912,6 +968,7 @@ export default function App() {
   function switchMap(id: string) {
     setWs((w) => ({ ...w, active: id }));
     const target = ws.maps.find((m) => m.id === id);
+    applyMapTheme(target);
     setSel(new Set());
     setEditId(null);
     setCollapsed(new Set(target?.collapsedIds ?? []));
@@ -942,7 +999,9 @@ export default function App() {
       setSel(new Set());
       setEditId(null);
       setHistory(createMapHistory());
-      setCollapsed(new Set(newWs.maps.find((m) => m.id === newWs.active)?.collapsedIds ?? []));
+      const nextActive = newWs.maps.find((m) => m.id === newWs.active);
+      setCollapsed(new Set(nextActive?.collapsedIds ?? []));
+      applyMapTheme(nextActive);
     }
   }
 
@@ -1449,32 +1508,40 @@ export default function App() {
   return (
     <main
       className={`min-h-screen overflow-hidden font-sans transition-colors duration-300 ${bg}`}
-      style={{ backgroundColor: isDark ? background.baseDark : background.baseLight }}
+      style={{
+        backgroundColor: minimal ? MINIMAL_THEME.background : isDark ? background.baseDark : background.baseLight,
+      }}
     >
       {/* ── Animated background layer ── */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div
-          className={`absolute inset-0 ${background.animated ? "bg-anim" : ""}`}
-          style={{
-            background:
-              `radial-gradient(ellipse at 20% 20%, ${background.glowA}, transparent 50%), ` +
-              `radial-gradient(ellipse at 80% 75%, ${background.glowB}, transparent 48%), ` +
-              (background.glowC ? `radial-gradient(ellipse at 60% 10%, ${background.glowC}, transparent 44%), ` : "") +
-              (background.glowD ? `radial-gradient(ellipse at 10% 80%, ${background.glowD}, transparent 40%), ` : "") +
-              "transparent",
-          }}
-        />
-        {/* Pattern overlay */}
-        {background.pattern && background.pattern !== "none" && (
+      {!minimal && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div
-            className="absolute inset-0 opacity-[0.14]"
+            className={`absolute inset-0 ${background.animated ? "bg-anim" : ""}`}
             style={{
-              backgroundImage: PATTERN_CSS[background.pattern],
-              backgroundSize: PATTERN_SIZES[background.pattern],
+              background:
+                `radial-gradient(ellipse at 20% 20%, ${background.glowA}, transparent 50%), ` +
+                `radial-gradient(ellipse at 80% 75%, ${background.glowB}, transparent 48%), ` +
+                (background.glowC
+                  ? `radial-gradient(ellipse at 60% 10%, ${background.glowC}, transparent 44%), `
+                  : "") +
+                (background.glowD
+                  ? `radial-gradient(ellipse at 10% 80%, ${background.glowD}, transparent 40%), `
+                  : "") +
+                "transparent",
             }}
           />
-        )}
-      </div>
+          {/* Pattern overlay */}
+          {background.pattern && background.pattern !== "none" && (
+            <div
+              className="absolute inset-0 opacity-[0.14]"
+              style={{
+                backgroundImage: PATTERN_CSS[background.pattern],
+                backgroundSize: PATTERN_SIZES[background.pattern],
+              }}
+            />
+          )}
+        </div>
+      )}
 
       <div className="relative flex min-h-screen">
         {/* ─── SIDEBAR ──────────────────────────────── */}
@@ -1535,54 +1602,6 @@ export default function App() {
 
             <div className={`mx-5 mt-4 h-px ${isDark ? "bg-white/6" : "bg-black/6"}`} />
 
-            {/* Layout automático */}
-            <div className="px-4 mt-4">
-              <div className="flex items-center justify-between mb-3">
-                <p
-                  className={`text-[11px] font-semibold uppercase tracking-widest ${isDark ? "text-slate-500" : "text-slate-400"}`}
-                >
-                  Layout automático
-                </p>
-                <button
-                  onClick={() => setShowLayoutModal(true)}
-                  className="text-[11px] font-medium text-indigo-400 hover:text-indigo-300 transition"
-                >
-                  Ver todos →
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                {(
-                  [
-                    { mode: "mindmap", icon: "🧠", label: "Mapa Mental" },
-                    { mode: "org", icon: "🏢", label: "Organograma" },
-                    { mode: "tree", icon: "🌳", label: "Árvore" },
-                    { mode: "radial", icon: "🎯", label: "Radial" },
-                    { mode: "flow", icon: "➡️", label: "Fluxo" },
-                    { mode: "timeline", icon: "📅", label: "Linha do Tempo" },
-                  ] as const
-                ).map(({ mode, icon, label }) => (
-                  <button
-                    key={mode}
-                    onClick={() => applyLayout(mode)}
-                    className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-[13px] font-medium transition hover:border-indigo-400/60 hover:text-indigo-300 ${btn}`}
-                  >
-                    <span className="text-base leading-none">{icon}</span>
-                    <span className="truncate">{label}</span>
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={() => setShowLayoutModal(true)}
-                className={`mt-2.5 w-full rounded-xl border border-indigo-500/25 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 px-3 py-2.5 text-[13px] font-medium transition`}
-              >
-                🪄 Auto-organizar com modelo…
-              </button>
-            </div>
-
-            <div className={`mx-5 mt-4 h-px ${isDark ? "bg-white/6" : "bg-black/6"}`} />
-
             {/* Atalhos */}
             <div className="px-4 mt-4 pb-5">
               <p
@@ -1625,7 +1644,12 @@ export default function App() {
         {/* ─── MAIN AREA ────────────────────────────── */}
         <section className="flex-1 flex flex-col min-w-0">
           {/* Toolbar */}
-          <header className={`flex h-14 items-center justify-between border-b px-3 md:px-5 gap-2 ${panel}`}>
+          {/* z-20: o backdrop-blur do painel cria stacking context; sem um z-index
+              explícito o canvas (posicionado, depois no DOM) fica por cima e engole
+              os cliques do popup de busca que transborda o header. */}
+          <header
+            className={`relative z-20 flex h-14 items-center justify-between border-b px-3 md:px-5 gap-2 ${panel}`}
+          >
             <div className="flex items-center gap-2 min-w-0">
               <button
                 onClick={() => setSidebarOpen((s) => !s)}
@@ -1732,6 +1756,8 @@ export default function App() {
                 </button>
                 {searchOpen && (
                   <div
+                    role="dialog"
+                    aria-label="Busca de nós"
                     className={`absolute right-0 top-full mt-1 z-50 rounded-2xl border shadow-2xl p-3 flex flex-col gap-2 ${isDark ? "border-white/10 bg-slate-900/95 backdrop-blur-xl" : "border-black/10 bg-white/95 backdrop-blur-xl"}`}
                     style={{ width: 280 }}
                     onMouseDown={(ev) => ev.stopPropagation()}
@@ -1794,11 +1820,13 @@ export default function App() {
                                 ev.stopPropagation();
                               }}
                               onClick={() => {
-                                setSearchIdx(i);
                                 setSel(new Set([n.id]));
                                 setInspectorOpen(false);
                                 const r = canvasRef.current?.getBoundingClientRect();
                                 if (r) setVp({ x: r.width / 2 - n.x * 1.2, y: r.height / 2 - n.y * 1.2, zoom: 1.2 });
+                                setSearchOpen(false);
+                                setSearchQuery("");
+                                setSearchIdx(0);
                               }}
                               className={`w-full text-left rounded-xl px-3 py-2 text-sm transition ${
                                 i === searchIdx
@@ -1901,7 +1929,7 @@ export default function App() {
                 {sidebarOpen ? "◀ Ocultar" : "▶ Painel"}
               </button>
               <button
-                onClick={() => setIsDark((d) => !d)}
+                onClick={toggleTheme}
                 className="rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 px-3 py-1.5 text-xs font-medium text-white shadow shadow-indigo-500/20"
                 aria-label="Alternar tema claro/escuro"
               >
@@ -1921,7 +1949,7 @@ export default function App() {
             onContextMenu={onCanvasCtx}
           >
             <div
-              className={`absolute inset-0 pointer-events-none ${isDark ? "canvas-grid-dark" : "canvas-grid-light"}`}
+              className={`absolute inset-0 pointer-events-none ${minimal || !isDark ? "canvas-grid-light" : "canvas-grid-dark"}`}
             />
             {map.nodes.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -1963,14 +1991,41 @@ export default function App() {
               }}
             >
               {/* Edges SVG */}
-              <svg style={{ position: "absolute", left: 0, top: 0, width: 1, height: 1, overflow: "visible" }}>
+              <svg
+                data-testid="edges"
+                style={{ position: "absolute", left: 0, top: 0, width: 1, height: 1, overflow: "visible" }}
+              >
+                {/* Decoração do modelo (espinha da espinha de peixe, eixo da linha do tempo) */}
+                {presetDecoration(activePreset, map.nodes).map((line, i) => (
+                  <line
+                    key={`decoration-${i}`}
+                    x1={line.x1}
+                    y1={line.y1}
+                    x2={line.x2}
+                    y2={line.y2}
+                    stroke={edgeClr}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                  />
+                ))}
                 {map.edges.map((edge) => {
                   const s = nodeMap.get(edge.source);
                   const t = nodeMap.get(edge.target);
                   if (!s || !t) return null;
                   const hidden = collapsed.has(edge.source) || !isVisible(s.id) || !isVisible(t.id);
                   if (hidden) return null;
-                  const d = edgePath(s.x, s.y, t.x, t.y);
+                  // Minimalista: curva curta + reta sublinhando o texto abaixo do nó.
+                  const minimalShape = minimal ? minimalEdgeFor(map, edge) : null;
+                  const d = minimalShape
+                    ? minimalEdgePath(minimalShape)
+                    : edge.routing
+                      ? edgePath(s.x, s.y, t.x, t.y, edge.routing)
+                      : activePreset
+                        ? presetEdgePath(activePreset, s.x, s.y, t.x, t.y, decorationAxisY)
+                        : edgePath(s.x, s.y, t.x, t.y);
+                  const hitD = minimalShape ? minimalEdgeHorizontal(minimalShape) : d;
+                  const tipHidden = minimalShape && collapsed.has(t.id) ? minimalHiddenCount(t.id, map.edges) : 0;
+                  const tipInteractive = minimalShape !== null && hasKids.has(t.id);
                   const hi = hoveredEdge === edge.id;
                   const dash = edge.style === "dashed" ? "8 5" : edge.style === "dotted" ? "3 4" : undefined;
                   return (
@@ -1984,7 +2039,7 @@ export default function App() {
                         strokeDasharray={dash}
                       />
                       <path
-                        d={d}
+                        d={hitD}
                         fill="none"
                         stroke="transparent"
                         strokeWidth={14}
@@ -1993,6 +2048,53 @@ export default function App() {
                         onMouseLeave={() => setHoveredEdge(null)}
                         onContextMenu={(ev) => onEdgeCtx(ev, edge.id)}
                       />
+                      {minimalShape && (
+                        <g>
+                          {tipInteractive && (
+                            <circle
+                              cx={minimalShape.outer.x}
+                              cy={minimalShape.outer.y}
+                              r={16}
+                              fill="transparent"
+                              role="button"
+                              aria-label={`Expandir ou recolher ramo de ${t.title}`}
+                              style={{ pointerEvents: "auto", cursor: "pointer" }}
+                              onMouseDown={(ev) => ev.stopPropagation()}
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                toggleCollapse(t.id);
+                              }}
+                              onContextMenu={(ev) => {
+                                ev.preventDefault();
+                                ev.stopPropagation();
+                              }}
+                            />
+                          )}
+                          <circle
+                            data-testid={minimalTipId(t.id)}
+                            cx={minimalShape.outer.x}
+                            cy={minimalShape.outer.y}
+                            r={8}
+                            fill={MINIMAL_THEME.background}
+                            stroke={hi ? edgeHi : edgeClr}
+                            strokeWidth={2}
+                            style={{ pointerEvents: "none" }}
+                          />
+                          {tipHidden > 0 && (
+                            <text
+                              x={minimalShape.outer.x}
+                              y={minimalShape.outer.y + 3.2}
+                              textAnchor="middle"
+                              fontSize={9}
+                              fontWeight={600}
+                              fill={MINIMAL_THEME.accent}
+                              style={{ pointerEvents: "none" }}
+                            >
+                              {tipHidden}
+                            </text>
+                          )}
+                        </g>
+                      )}
                     </g>
                   );
                 })}
@@ -2026,10 +2128,14 @@ export default function App() {
                 const isEdit = editId === n.id;
                 const nHasKids = hasKids.has(n.id);
                 const isCollapsed = collapsed.has(n.id);
+                const isRootNode = minimal && n.id === map.nodes[0]?.id;
                 return (
                   <div
                     key={n.id}
-                    className={`group absolute flex items-center gap-3 border p-3 shadow-xl transition-shadow select-none
+                    className={
+                      minimal
+                        ? minimalNodeClass(isRootNode, isSel)
+                        : `group absolute flex items-center gap-3 border p-3 shadow-xl transition-shadow select-none
                       ${shapeClass(n.shape)}
                       ${n.shape === "circle" ? "w-36 h-36 flex-col justify-center text-center !gap-1.5 !p-3" : "min-w-[10rem] max-w-[16rem]"}
                       ${
@@ -2038,13 +2144,16 @@ export default function App() {
                           : isDark
                             ? "border-white/12 bg-slate-900/80 shadow-black/20 hover:border-white/25 hover:shadow-lg"
                             : "border-slate-200 bg-white/90 shadow-slate-200/60 hover:border-slate-300 hover:shadow-lg"
-                      }`}
+                      }`
+                    }
                     style={{
                       left: n.x,
                       top: n.y,
                       transform: `translate(-50%, -50%) scale(${n.scale ?? 1})`,
                       cursor: cursor === "grabbing" ? "grabbing" : "grab",
-                      ...(n.borderColor ? { borderColor: n.borderColor } : {}),
+                      ...(minimal ? { color: minimalNodeColor(isRootNode) } : {}),
+                      ...(minimal && !isRootNode ? { width: MINIMAL_NODE_WIDTH } : {}),
+                      ...(!minimal && n.borderColor ? { borderColor: n.borderColor } : {}),
                     }}
                     tabIndex={0}
                     role="button"
@@ -2084,75 +2193,91 @@ export default function App() {
                       }
                     }}
                   >
-                    <div
-                      className={`${n.shape === "circle" ? "h-8 w-8" : "h-10 w-10"} shrink-0 rounded-xl ${iconBg(n.tone, isDark)} shadow-md flex items-center justify-center text-lg emoji`}
-                    >
-                      {n.icon || ""}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      {isEdit && editField === "title" ? (
-                        <input
-                          autoFocus
-                          value={n.title}
-                          onChange={(ev) => updateNodeFn(n.id, { title: ev.target.value })}
-                          onBlur={() => setEditId(null)}
-                          onKeyDown={(ev) => {
-                            if (ev.key === "Enter" || ev.key === "Escape") setEditId(null);
-                          }}
-                          onClick={(ev) => ev.stopPropagation()}
-                          className={`w-full rounded-lg border px-2 py-1 text-sm font-semibold outline-none ${inp}`}
-                        />
-                      ) : (
-                        <div className="text-sm font-semibold truncate">{n.title}</div>
-                      )}
-                      {n.note && !isEdit && (
-                        <div className={`text-xs mt-0.5 truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                          {n.note}
+                    {minimal ? (
+                      <MinimalNodeBody
+                        node={n}
+                        isRoot={isRootNode}
+                        editing={isEdit && editField === "title"}
+                        onChangeTitle={(value) => updateNodeFn(n.id, { title: value })}
+                        onEndEdit={() => setEditId(null)}
+                      />
+                    ) : (
+                      <>
+                        <div
+                          className={`${n.shape === "circle" ? "h-8 w-8" : "h-10 w-10"} shrink-0 rounded-xl ${iconBg(n.tone, isDark)} shadow-md flex items-center justify-center text-lg emoji`}
+                        >
+                          {n.icon || ""}
                         </div>
-                      )}
-                      {n.checklist && n.checklist.length > 0 && !isEdit && (
-                        <div className="mt-1 space-y-0.5">
-                          {n.checklist.slice(0, 2).map((c, i) => (
-                            <div key={i} className="flex items-center gap-1 text-[10px]">
-                              <span className={c.done ? "text-emerald-400" : "text-slate-500"}>
-                                {c.done ? "☑" : "☐"}
-                              </span>
-                              <span className={`truncate ${c.done ? "line-through opacity-50" : ""}`}>{c.text}</span>
+                        <div className="min-w-0 flex-1">
+                          {isEdit && editField === "title" ? (
+                            <input
+                              autoFocus
+                              value={n.title}
+                              onChange={(ev) => updateNodeFn(n.id, { title: ev.target.value })}
+                              onBlur={() => setEditId(null)}
+                              onKeyDown={(ev) => {
+                                if (ev.key === "Enter" || ev.key === "Escape") setEditId(null);
+                              }}
+                              onClick={(ev) => ev.stopPropagation()}
+                              className={`w-full rounded-lg border px-2 py-1 text-sm font-semibold outline-none ${inp}`}
+                            />
+                          ) : (
+                            <div className="text-sm font-semibold truncate">{n.title}</div>
+                          )}
+                          {n.note && !isEdit && (
+                            <div className={`text-xs mt-0.5 truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                              {n.note}
                             </div>
-                          ))}
-                          {n.checklist.length > 2 && (
-                            <span className="text-[10px] text-slate-500">+{n.checklist.length - 2} itens</span>
+                          )}
+                          {n.checklist && n.checklist.length > 0 && !isEdit && (
+                            <div className="mt-1 space-y-0.5">
+                              {n.checklist.slice(0, 2).map((c, i) => (
+                                <div key={i} className="flex items-center gap-1 text-[10px]">
+                                  <span className={c.done ? "text-emerald-400" : "text-slate-500"}>
+                                    {c.done ? "☑" : "☐"}
+                                  </span>
+                                  <span className={`truncate ${c.done ? "line-through opacity-50" : ""}`}>
+                                    {c.text}
+                                  </span>
+                                </div>
+                              ))}
+                              {n.checklist.length > 2 && (
+                                <span className="text-[10px] text-slate-500">+{n.checklist.length - 2} itens</span>
+                              )}
+                            </div>
+                          )}
+                          {n.attachments && n.attachments.length > 0 && !isEdit && (
+                            <button
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                setNodeAttachModal(n.id);
+                              }}
+                              className={`mt-1 flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border transition ${isDark ? "border-white/10 bg-white/5 hover:bg-white/10" : "border-black/5 bg-slate-50 hover:bg-slate-100"}`}
+                              title={`${n.attachments.length} anexo(s). Clique para ver/abrir.`}
+                            >
+                              <span className="emoji">{ATTACH_ICONS[n.attachments[0].type]}</span>
+                              {n.attachments.length > 1 && (
+                                <span className="opacity-70">+{n.attachments.length - 1}</span>
+                              )}
+                            </button>
                           )}
                         </div>
-                      )}
-                      {n.attachments && n.attachments.length > 0 && !isEdit && (
-                        <button
-                          onClick={(ev) => {
-                            ev.stopPropagation();
-                            setNodeAttachModal(n.id);
-                          }}
-                          className={`mt-1 flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border transition ${isDark ? "border-white/10 bg-white/5 hover:bg-white/10" : "border-black/5 bg-slate-50 hover:bg-slate-100"}`}
-                          title={`${n.attachments.length} anexo(s). Clique para ver/abrir.`}
-                        >
-                          <span className="emoji">{ATTACH_ICONS[n.attachments[0].type]}</span>
-                          {n.attachments.length > 1 && <span className="opacity-70">+{n.attachments.length - 1}</span>}
-                        </button>
-                      )}
-                    </div>
 
-                    {/* Collapse toggle (inline) */}
-                    {nHasKids && (
-                      <button
-                        onClick={(ev) => {
-                          ev.stopPropagation();
-                          toggleCollapse(n.id);
-                        }}
-                        className={`shrink-0 flex items-center justify-center w-5 h-5 rounded-full text-[12px] font-bold z-20 transition-colors
+                        {/* Collapse toggle (inline) */}
+                        {nHasKids && (
+                          <button
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              toggleCollapse(n.id);
+                            }}
+                            className={`shrink-0 flex items-center justify-center w-5 h-5 rounded-full text-[12px] font-bold z-20 transition-colors
                           ${isDark ? "bg-white/10 hover:bg-white/20 text-white" : "bg-black/5 hover:bg-black/10 text-slate-700"}`}
-                        aria-label="Colapsar ou expandir ramo"
-                      >
-                        {isCollapsed ? "+" : "−"}
-                      </button>
+                            aria-label="Colapsar ou expandir ramo"
+                          >
+                            {isCollapsed ? "+" : "−"}
+                          </button>
+                        )}
+                      </>
                     )}
 
                     {/* Connection handles */}
@@ -2587,8 +2712,8 @@ export default function App() {
           <div
             role="menu"
             aria-label="Menu de contexto"
-            className={`fixed z-50 rounded-lg border shadow-2xl p-0.5 min-w-[11rem] ${isDark ? "border-white/10 bg-slate-900/95 backdrop-blur-xl text-slate-200" : "border-black/10 bg-white/95 backdrop-blur-xl text-slate-800"}`}
-            style={{ left: Math.min(ctx.x, window.innerWidth - 200), top: Math.min(ctx.y, window.innerHeight - 260) }}
+            className={`fixed z-50 rounded-lg border shadow-2xl p-0.5 min-w-[11rem] max-h-[70vh] overflow-y-auto custom-scroll ${isDark ? "border-white/10 bg-slate-900/95 backdrop-blur-xl text-slate-200" : "border-black/10 bg-white/95 backdrop-blur-xl text-slate-800"}`}
+            style={{ left: Math.min(ctx.x, window.innerWidth - 260), top: Math.min(ctx.y, window.innerHeight - 340) }}
           >
             {ctx.nodeId && (
               <>
@@ -2706,40 +2831,74 @@ export default function App() {
                 />
               </>
             )}
-            {ctx.edgeId && (
-              <>
-                <CtxBtn
-                  label="— Linha sólida"
-                  onClick={() => {
-                    updateEdgeStyle(ctx.edgeId!, "solid");
-                    setCtx(null);
-                  }}
-                />
-                <CtxBtn
-                  label="- - Linha tracejada"
-                  onClick={() => {
-                    updateEdgeStyle(ctx.edgeId!, "dashed");
-                    setCtx(null);
-                  }}
-                />
-                <CtxBtn
-                  label="· · Linha pontilhada"
-                  onClick={() => {
-                    updateEdgeStyle(ctx.edgeId!, "dotted");
-                    setCtx(null);
-                  }}
-                />
-                <div className={`my-1 h-px ${isDark ? "bg-white/10" : "bg-black/10"}`} />
-                <CtxBtn
-                  label="🗑 Remover conexão"
-                  danger
-                  onClick={() => {
-                    deleteEdgeFn(ctx.edgeId!);
-                    setCtx(null);
-                  }}
-                />
-              </>
-            )}
+            {ctx.edgeId &&
+              (() => {
+                const edgeId = ctx.edgeId!;
+                const routing = map.edges.find((edge) => edge.id === edgeId)?.routing ?? "curve";
+                return (
+                  <>
+                    <CtxBtn
+                      label="— Linha sólida"
+                      onClick={() => {
+                        updateEdgeStyle(edgeId, "solid");
+                        setCtx(null);
+                      }}
+                    />
+                    <CtxBtn
+                      label="- - Linha tracejada"
+                      onClick={() => {
+                        updateEdgeStyle(edgeId, "dashed");
+                        setCtx(null);
+                      }}
+                    />
+                    <CtxBtn
+                      label="· · Linha pontilhada"
+                      onClick={() => {
+                        updateEdgeStyle(edgeId, "dotted");
+                        setCtx(null);
+                      }}
+                    />
+                    <div className={`my-1 h-px ${isDark ? "bg-white/10" : "bg-black/10"}`} />
+                    <CtxBtn
+                      label={`${routing === "curve" ? "✓ " : ""}↺ Conexão curva`}
+                      onClick={() => {
+                        updateEdgeRouting(edgeId, "curve");
+                        setCtx(null);
+                      }}
+                    />
+                    <CtxBtn
+                      label={`${routing === "straight" ? "✓ " : ""}↗ Conexão reta`}
+                      onClick={() => {
+                        updateEdgeRouting(edgeId, "straight");
+                        setCtx(null);
+                      }}
+                    />
+                    <CtxBtn
+                      label={`${routing === "ortho" ? "✓ " : ""}⌐ Conexão ortogonal`}
+                      onClick={() => {
+                        updateEdgeRouting(edgeId, "ortho");
+                        setCtx(null);
+                      }}
+                    />
+                    <CtxBtn
+                      label={`Aplicar "${ROUTING_LABELS[routing]}" a todas as conexões`}
+                      onClick={() => {
+                        applyRoutingToAllEdges(routing);
+                        setCtx(null);
+                      }}
+                    />
+                    <div className={`my-1 h-px ${isDark ? "bg-white/10" : "bg-black/10"}`} />
+                    <CtxBtn
+                      label="🗑 Remover conexão"
+                      danger
+                      onClick={() => {
+                        deleteEdgeFn(edgeId);
+                        setCtx(null);
+                      }}
+                    />
+                  </>
+                );
+              })()}
             {!ctx.nodeId && !ctx.edgeId && (
               <>
                 <CtxBtn
@@ -3479,294 +3638,34 @@ export default function App() {
             </div>
 
             <div className="p-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-              {[
-                {
-                  mode: "mindmap" as const,
-                  icon: "🧠",
-                  label: "Mapa Mental",
-                  desc: "Ramos equilibrados à esquerda e à direita do nó raiz",
-                  preview: (
-                    <svg viewBox="0 0 120 80" className="w-full h-14">
-                      <circle cx="60" cy="40" r="10" fill="currentColor" opacity=".7" />
-                      {[
-                        [22, 20],
-                        [22, 40],
-                        [22, 60],
-                        [98, 20],
-                        [98, 40],
-                        [98, 60],
-                      ].map(([x, y], i) => (
-                        <g key={i}>
-                          <line x1="60" y1="40" x2={x} y2={y} stroke="currentColor" strokeWidth="1.5" opacity=".4" />
-                          <circle cx={x} cy={y} r="6" fill="currentColor" opacity=".5" />
-                        </g>
-                      ))}
-                    </svg>
-                  ),
-                },
-                {
-                  mode: "org" as const,
-                  icon: "🏢",
-                  label: "Organograma",
-                  desc: "Hierarquia de cima para baixo, nível por nível",
-                  preview: (
-                    <svg viewBox="0 0 120 80" className="w-full h-14">
-                      <circle cx="60" cy="12" r="8" fill="currentColor" opacity=".7" />
-                      {[
-                        [30, 38],
-                        [60, 38],
-                        [90, 38],
-                      ].map(([x, y], i) => (
-                        <g key={i}>
-                          <line
-                            x1="60"
-                            y1="20"
-                            x2={x}
-                            y2={y - 8}
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                            opacity=".4"
-                          />
-                          <circle cx={x} cy={y} r="6" fill="currentColor" opacity=".55" />
-                        </g>
-                      ))}
-                      {[
-                        [18, 64],
-                        [42, 64],
-                        [74, 64],
-                        [98, 64],
-                      ].map(([x, y], i) => (
-                        <g key={i}>
-                          <line
-                            x1={i < 2 ? 30 : 90}
-                            y1="44"
-                            x2={x}
-                            y2={y - 6}
-                            stroke="currentColor"
-                            strokeWidth="1.2"
-                            opacity=".35"
-                          />
-                          <rect x={x - 7} y={y - 6} width="14" height="10" rx="3" fill="currentColor" opacity=".45" />
-                        </g>
-                      ))}
-                    </svg>
-                  ),
-                },
-                {
-                  mode: "tree" as const,
-                  icon: "🌳",
-                  label: "Árvore",
-                  desc: "Cresce da esquerda para a direita em ramificações",
-                  preview: (
-                    <svg viewBox="0 0 120 80" className="w-full h-14">
-                      <circle cx="16" cy="40" r="8" fill="currentColor" opacity=".7" />
-                      {[
-                        [50, 20],
-                        [50, 60],
-                      ].map(([x, y], i) => (
-                        <g key={i}>
-                          <line x1="24" y1="40" x2={x} y2={y} stroke="currentColor" strokeWidth="1.5" opacity=".4" />
-                          <circle cx={x} cy={y} r="6" fill="currentColor" opacity=".55" />
-                        </g>
-                      ))}
-                      {[
-                        [84, 12],
-                        [84, 28],
-                        [84, 52],
-                        [84, 68],
-                      ].map(([x, y], i) => (
-                        <g key={i}>
-                          <line
-                            x1="56"
-                            y1={i < 2 ? 20 : 60}
-                            x2={x}
-                            y2={y}
-                            stroke="currentColor"
-                            strokeWidth="1.2"
-                            opacity=".35"
-                          />
-                          <circle cx={x} cy={y} r="5" fill="currentColor" opacity=".45" />
-                        </g>
-                      ))}
-                    </svg>
-                  ),
-                },
-                {
-                  mode: "radial" as const,
-                  icon: "🎯",
-                  label: "Radial",
-                  desc: "Filhos distribuídos em círculo ao redor do centro",
-                  preview: (
-                    <svg viewBox="0 0 120 80" className="w-full h-14">
-                      <circle cx="60" cy="40" r="10" fill="currentColor" opacity=".7" />
-                      {Array.from({ length: 6 }, (_, i) => {
-                        const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
-                        const x = 60 + Math.cos(a) * 28,
-                          y = 40 + Math.sin(a) * 24;
-                        return (
-                          <g key={i}>
-                            <line x1="60" y1="40" x2={x} y2={y} stroke="currentColor" strokeWidth="1.5" opacity=".4" />
-                            <circle cx={x} cy={y} r="5.5" fill="currentColor" opacity=".5" />
-                          </g>
-                        );
-                      })}
-                    </svg>
-                  ),
-                },
-                {
-                  mode: "flow" as const,
-                  icon: "➡️",
-                  label: "Fluxo",
-                  desc: "Cadeia horizontal da esquerda para a direita",
-                  preview: (
-                    <svg viewBox="0 0 120 80" className="w-full h-14">
-                      {[14, 38, 62, 86, 110].map((x, i, arr) => (
-                        <g key={i}>
-                          {i < arr.length - 1 && (
-                            <line
-                              x1={x + 8}
-                              y1="40"
-                              x2={arr[i + 1] - 8}
-                              y2="40"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                              opacity=".4"
-                            />
-                          )}
-                          <rect
-                            x={x - 8}
-                            y="32"
-                            width="16"
-                            height="16"
-                            rx="4"
-                            fill="currentColor"
-                            opacity={i === 0 ? 0.7 : 0.5}
-                          />
-                        </g>
-                      ))}
-                    </svg>
-                  ),
-                },
-                {
-                  mode: "fishbone" as const,
-                  icon: "🐟",
-                  label: "Espinha de Peixe",
-                  desc: "Diagrama de causa-efeito (Ishikawa)",
-                  preview: (
-                    <svg viewBox="0 0 120 80" className="w-full h-14">
-                      <line x1="10" y1="40" x2="110" y2="40" stroke="currentColor" strokeWidth="2" opacity=".5" />
-                      <circle cx="110" cy="40" r="8" fill="currentColor" opacity=".7" />
-                      {[
-                        [30, 18],
-                        [50, 18],
-                        [70, 18],
-                        [30, 62],
-                        [50, 62],
-                        [70, 62],
-                      ].map(([x, y], i) => (
-                        <g key={i}>
-                          <line x1={x} y1={y} x2={x} y2="40" stroke="currentColor" strokeWidth="1.5" opacity=".4" />
-                          <circle cx={x} cy={y} r="5" fill="currentColor" opacity=".5" />
-                        </g>
-                      ))}
-                    </svg>
-                  ),
-                },
-                {
-                  mode: "timeline" as const,
-                  icon: "📅",
-                  label: "Linha do Tempo",
-                  desc: "Sequência horizontal com marcos alternados acima/abaixo",
-                  preview: (
-                    <svg viewBox="0 0 120 80" className="w-full h-14">
-                      <line x1="10" y1="40" x2="110" y2="40" stroke="currentColor" strokeWidth="1.5" opacity=".3" />
-                      {[14, 38, 62, 86, 110].map((x, i) => (
-                        <g key={i}>
-                          <line
-                            x1={x}
-                            y1="40"
-                            x2={x}
-                            y2={i % 2 === 0 ? 20 : 60}
-                            stroke="currentColor"
-                            strokeWidth="1.2"
-                            opacity=".4"
-                          />
-                          <circle cx={x} cy={i % 2 === 0 ? 16 : 64} r="6" fill="currentColor" opacity=".6" />
-                          <circle cx={x} cy="40" r="3" fill="currentColor" opacity=".8" />
-                        </g>
-                      ))}
-                    </svg>
-                  ),
-                },
-                {
-                  mode: "grid" as const,
-                  icon: "⊞",
-                  label: "Grade",
-                  desc: "Todos os nós em grade uniforme, ideal para coleções",
-                  preview: (
-                    <svg viewBox="0 0 120 80" className="w-full h-14">
-                      {[
-                        [16, 16],
-                        [44, 16],
-                        [72, 16],
-                        [100, 16],
-                        [16, 44],
-                        [44, 44],
-                        [72, 44],
-                        [100, 44],
-                        [16, 72],
-                        [44, 72],
-                        [72, 72],
-                      ].map(([x, y], i) => (
-                        <rect
-                          key={i}
-                          x={x - 10}
-                          y={y - 8}
-                          width="20"
-                          height="14"
-                          rx="3"
-                          fill="currentColor"
-                          opacity={i === 0 ? 0.75 : 0.4}
-                        />
-                      ))}
-                    </svg>
-                  ),
-                },
-              ].map(({ mode, icon, label, desc, preview }) => (
+              {PRESETS.map((preset) => (
                 <button
-                  key={mode}
-                  onClick={() => applyLayout(mode)}
+                  key={preset.id}
+                  onClick={() => applyPreset(preset.id)}
                   className={`group rounded-2xl border p-3 text-left transition-all hover:border-indigo-400/60 hover:scale-[1.02] active:scale-[0.98] ${isDark ? "border-white/10 bg-white/[.03] hover:bg-indigo-500/8" : "border-black/10 bg-slate-50 hover:bg-indigo-50"}`}
                 >
                   <div
                     className={`${isDark ? "text-indigo-300/70 group-hover:text-indigo-300" : "text-indigo-600/70 group-hover:text-indigo-600"} transition-colors`}
                   >
-                    {preview}
+                    <PresetPreview preset={preset} />
                   </div>
                   <div className="mt-2 flex items-center gap-1.5">
-                    <span className="text-base">{icon}</span>
-                    <span className="text-sm font-semibold">{label}</span>
+                    <span className="text-base">{preset.icon}</span>
+                    <span className="text-sm font-semibold">{preset.label}</span>
                   </div>
                   <p className={`text-[11px] mt-1 leading-snug ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                    {desc}
+                    {preset.desc}
                   </p>
                 </button>
               ))}
             </div>
 
-            {/* Auto-pick footer */}
-            <div
-              className={`px-6 pb-5 pt-1 flex items-center justify-between border-t ${isDark ? "border-white/8" : "border-black/8"}`}
-            >
+            {/* Status: o card aplica na hora, então o rodapé só informa o estado */}
+            <div className={`px-6 py-3 border-t ${isDark ? "border-white/8" : "border-black/8"}`}>
               <p className={`text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                 Modelo atual do mapa: <span className="font-semibold text-indigo-400">{map.template}</span>
+                {activePreset ? <> · organizado como {activePreset.label}</> : null}
               </p>
-              <button
-                onClick={autoOrganize}
-                className="rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-2 text-sm font-semibold text-white shadow shadow-indigo-500/30 hover:opacity-90 transition"
-              >
-                ✨ Aplicar modelo sugerido
-              </button>
             </div>
           </div>
         </div>
@@ -3825,7 +3724,7 @@ export default function App() {
                 {BACKGROUND_PRESETS.map((preset) => (
                   <button
                     key={preset.name}
-                    onClick={() => setBackground(preset)}
+                    onClick={() => applyBackground(preset)}
                     className={`group overflow-hidden rounded-2xl border transition-all ${background.name === preset.name ? "border-indigo-400 ring-2 ring-indigo-400/30 scale-[1.03]" : isDark ? "border-white/10 hover:border-white/25 hover:scale-[1.02]" : "border-black/10 hover:border-black/20 hover:scale-[1.02]"}`}
                   >
                     <div
@@ -3878,7 +3777,7 @@ export default function App() {
                     {(["none", "grid", "dots", "hex", "crosshatch"] as const).map((p) => (
                       <button
                         key={p}
-                        onClick={() => setBackground((b) => ({ ...b, name: "Personalizado", pattern: p }))}
+                        onClick={() => applyBackground((b) => ({ ...b, name: "Personalizado", pattern: p }))}
                         className={`rounded-lg px-3 py-1.5 text-xs font-medium border transition ${background.pattern === p ? "border-indigo-400 bg-indigo-500/20 text-indigo-300" : isDark ? "border-white/10 bg-white/5 hover:bg-white/10 text-slate-300" : "border-black/10 bg-white hover:bg-slate-100 text-slate-700"}`}
                       >
                         {p === "none"
@@ -3900,7 +3799,7 @@ export default function App() {
                 >
                   <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">Animação</p>
                   <button
-                    onClick={() => setBackground((b) => ({ ...b, name: "Personalizado", animated: !b.animated }))}
+                    onClick={() => applyBackground((b) => ({ ...b, name: "Personalizado", animated: !b.animated }))}
                     className={`rounded-xl border px-4 py-2 text-sm font-medium transition w-full ${background.animated ? "border-indigo-400 bg-indigo-500/20 text-indigo-300" : isDark ? "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10" : "border-black/10 bg-white text-slate-700 hover:bg-slate-100"}`}
                   >
                     {background.animated ? "✦ Ativada — aurora suave" : "○ Desativada — estático"}
@@ -3919,32 +3818,40 @@ export default function App() {
                   <ColorInput
                     label="Base"
                     value={background.baseDark}
-                    onChange={(v) => setBackground((b) => ({ ...b, name: "Personalizado", baseDark: v }))}
+                    onChange={(v) => applyBackground((b) => ({ ...b, name: "Personalizado", baseDark: v }))}
                   />
                   <ColorInput
                     label="Base clara"
                     value={background.baseLight}
-                    onChange={(v) => setBackground((b) => ({ ...b, name: "Personalizado", baseLight: v }))}
+                    onChange={(v) => applyBackground((b) => ({ ...b, name: "Personalizado", baseLight: v }))}
                   />
                   <ColorInput
                     label="Brilho A"
                     value={rgbaToHex(background.glowA)}
-                    onChange={(v) => setBackground((b) => ({ ...b, name: "Personalizado", glowA: hexToRgba(v, 0.65) }))}
+                    onChange={(v) =>
+                      applyBackground((b) => ({ ...b, name: "Personalizado", glowA: hexToRgba(v, 0.65) }))
+                    }
                   />
                   <ColorInput
                     label="Brilho B"
                     value={rgbaToHex(background.glowB)}
-                    onChange={(v) => setBackground((b) => ({ ...b, name: "Personalizado", glowB: hexToRgba(v, 0.55) }))}
+                    onChange={(v) =>
+                      applyBackground((b) => ({ ...b, name: "Personalizado", glowB: hexToRgba(v, 0.55) }))
+                    }
                   />
                   <ColorInput
                     label="Brilho C"
                     value={rgbaToHex(background.glowC ?? "#000000")}
-                    onChange={(v) => setBackground((b) => ({ ...b, name: "Personalizado", glowC: hexToRgba(v, 0.4) }))}
+                    onChange={(v) =>
+                      applyBackground((b) => ({ ...b, name: "Personalizado", glowC: hexToRgba(v, 0.4) }))
+                    }
                   />
                   <ColorInput
                     label="Brilho D"
                     value={rgbaToHex(background.glowD ?? "#000000")}
-                    onChange={(v) => setBackground((b) => ({ ...b, name: "Personalizado", glowD: hexToRgba(v, 0.3) }))}
+                    onChange={(v) =>
+                      applyBackground((b) => ({ ...b, name: "Personalizado", glowD: hexToRgba(v, 0.3) }))
+                    }
                   />
                 </div>
               </div>

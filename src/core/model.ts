@@ -14,7 +14,8 @@ export type TemplateName =
   | "Espinha de Peixe"
   | "Livre"
   | "Kanban"
-  | "Timeline";
+  | "Timeline"
+  | "Minimalista";
 export type AttachType = "url" | "image" | "video" | "audio" | "pdf" | "doc" | "xls" | "map";
 
 export interface CheckItem {
@@ -69,12 +70,80 @@ export interface MNode {
 }
 
 export type EdgeStyle = "solid" | "dashed" | "dotted";
+// Geometria da conexão. `curve` é o padrão historico: ausência do campo
+// significa curva, para os mapas antigos continuarem byte a byte iguais.
+export type EdgeRouting = "curve" | "straight" | "ortho";
+
+export const EDGE_ROUTINGS: EdgeRouting[] = ["curve", "straight", "ortho"];
+
+// Modelos de organização do canvas (cards do "Organizar layout").
+export const LAYOUT_PRESET_IDS = ["mindmap", "org", "tree", "radial", "flow", "fishbone", "timeline", "grid"] as const;
+export type LayoutPresetId = (typeof LAYOUT_PRESET_IDS)[number];
 
 export interface MEdge {
   id: string;
   source: string;
   target: string;
   style?: EdgeStyle;
+  routing?: EdgeRouting;
+}
+
+export type BackgroundPattern = "none" | "grid" | "dots" | "hex" | "crosshatch";
+
+/** Fundo do mapa, em formato puro (sem dependência de UI). */
+export interface MapBackground {
+  name: string;
+  baseDark: string;
+  baseLight: string;
+  glowA: string;
+  glowB: string;
+  glowC?: string;
+  glowD?: string;
+  pattern?: BackgroundPattern;
+  animated?: boolean;
+}
+
+/** Tema do mapa: claro/escuro + fundo. Persistido junto com o mapa. */
+export interface MapTheme {
+  dark: boolean;
+  background: MapBackground;
+}
+
+const BACKGROUND_PATTERNS = new Set<string>(["none", "grid", "dots", "hex", "crosshatch"]);
+
+function isNonEmpty(v: unknown): v is string {
+  return typeof v === "string" && v.length > 0;
+}
+
+/**
+ * Valida e normaliza um tema vindo do armazenamento/importação.
+ * Devolve undefined quando o formato não é confiável (o chamador ignora).
+ */
+export function sanitizeMapTheme(raw: unknown): MapTheme | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const candidate = raw as Record<string, unknown>;
+  if (typeof candidate.dark !== "boolean") return undefined;
+  const bg = candidate.background;
+  if (!bg || typeof bg !== "object") return undefined;
+  const b = bg as Record<string, unknown>;
+  if (!isNonEmpty(b.name) || !isNonEmpty(b.baseDark) || !isNonEmpty(b.baseLight)) return undefined;
+  if (!isNonEmpty(b.glowA) || !isNonEmpty(b.glowB)) return undefined;
+  return {
+    dark: candidate.dark,
+    background: {
+      name: b.name,
+      baseDark: b.baseDark,
+      baseLight: b.baseLight,
+      glowA: b.glowA,
+      glowB: b.glowB,
+      ...(isNonEmpty(b.glowC) ? { glowC: b.glowC } : {}),
+      ...(isNonEmpty(b.glowD) ? { glowD: b.glowD } : {}),
+      ...(typeof b.pattern === "string" && BACKGROUND_PATTERNS.has(b.pattern)
+        ? { pattern: b.pattern as BackgroundPattern }
+        : {}),
+      ...(typeof b.animated === "boolean" ? { animated: b.animated } : {}),
+    },
+  };
 }
 
 export interface MMap {
@@ -83,6 +152,10 @@ export interface MMap {
   template: TemplateName;
   ts: string;
   schemaVersion?: number;
+  // Último modelo de organização aplicado (define desenho das conexões e decoração).
+  layoutPreset?: LayoutPresetId;
+  // Tema próprio do mapa (claro/escuro + fundo); ausente = herda o atual.
+  theme?: MapTheme;
   nodes: MNode[];
   edges: MEdge[];
   collapsedIds?: string[];
@@ -106,6 +179,7 @@ export const TEMPLATES: TemplateName[] = [
   "Livre",
   "Kanban",
   "Timeline",
+  "Minimalista",
 ];
 
 export const SCHEMA_VERSION = 1;
@@ -142,8 +216,8 @@ export function mkNode(
 ): MNode {
   return { id: uid("n"), title, note, x, y, tone, shape, ...extra };
 }
-export function mkEdge(source: string, target: string, style?: EdgeStyle): MEdge {
-  return { id: uid("e"), source, target, style };
+export function mkEdge(source: string, target: string, style?: EdgeStyle, routing?: EdgeRouting): MEdge {
+  return { id: uid("e"), source, target, style, routing };
 }
 
 /**
