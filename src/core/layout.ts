@@ -4,93 +4,116 @@ import type { MEdge, MNode, TemplateName } from "./model";
 import { childrenOf, sanitizeLog } from "./model";
 
 // ── Layout algorithms ─────────────────────────────────────────────
-export function autoLayoutOrgChart(nodes: MNode[], edges: MEdge[], rootId?: string) {
-  const root = rootId ? nodes.find((n) => n.id === rootId) : nodes[0];
+// Caixa conservadora de um nó: o cartão pode chegar a max-w-[16rem] (256px) e a
+// ~120px de altura com título, nota, checklist e anexo. Usar o pior caso é o que
+// garante ausência de sobreposição sem medir o DOM (o core não toca na interface).
+export const LAYOUT_METRICS = { nodeWidth: 256, nodeHeight: 120, gapX: 72, gapY: 64 } as const;
+
+export type HierarchyAxis = "vertical" | "horizontal";
+
+/**
+ * Árvore hierárquica "tidy": cada nó é centralizado sobre a faixa dos filhos,
+ * irmãos nunca se sobrepõem e a ordem horizontal atual é preservada (reaplicar
+ * o layout não embaralha os ramos). `vertical` desce nível por nível
+ * (organograma); `horizontal` cresce para a direita (árvore).
+ */
+export function autoLayoutHierarchical(
+  nodes: MNode[],
+  edges: MEdge[],
+  rootId?: string,
+  axis: HierarchyAxis = "vertical",
+): MNode[] {
+  const root = (rootId ? nodes.find((n) => n.id === rootId) : undefined) ?? nodes[0];
   if (!root) return nodes;
-  const out = [...nodes];
-  const set = (id: string, x: number, y: number) => {
-    const i = out.findIndex((n) => n.id === id);
-    if (i >= 0) {
-      out[i] = { ...out[i], x, y };
+
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const vertical = axis === "vertical";
+  const depthStep = vertical
+    ? LAYOUT_METRICS.nodeHeight + LAYOUT_METRICS.gapY
+    : LAYOUT_METRICS.nodeWidth + LAYOUT_METRICS.gapX;
+  const bandStep = vertical
+    ? LAYOUT_METRICS.nodeWidth + LAYOUT_METRICS.gapX
+    : LAYOUT_METRICS.nodeHeight + LAYOUT_METRICS.gapY;
+  const origin = vertical ? { x: 500, y: 100 } : { x: 100, y: 380 };
+  const crossOf = (n: MNode) => (vertical ? n.x : n.y);
+
+  // Deduplica arestas paralelas e ordena irmãos pela posição atual.
+  const kidsOf = (id: string) => {
+    const seen = new Set<string>();
+    return childrenOf(id, edges)
+      .filter((kid) => {
+        if (!byId.has(kid) || seen.has(kid)) return false;
+        seen.add(kid);
+        return true;
+      })
+      .sort((a, b) => crossOf(byId.get(a)!) - crossOf(byId.get(b)!));
+  };
+
+  // Faixa (em colunas/linhas) ocupada pela subárvore; o guarda `computing` corta ciclos.
+  const widths = new Map<string, number>();
+  const computing = new Set<string>();
+  const bandOf = (id: string): number => {
+    const cached = widths.get(id);
+    if (cached !== undefined) return cached;
+    if (computing.has(id)) return 1;
+    computing.add(id);
+    const kids = kidsOf(id);
+    const total = kids.length === 0 ? 1 : kids.reduce((sum, kid) => sum + bandOf(kid), 0);
+    computing.delete(id);
+    widths.set(id, total);
+    return total;
+  };
+
+  const placed = new Map<string, { x: number; y: number }>();
+  const visited = new Set<string>();
+  const place = (id: string, depth: number, start: number) => {
+    if (visited.has(id)) {
+      console.warn(`APAMIND: ciclo em autoLayoutHierarchical no no ${sanitizeLog(id)}`);
+      return;
+    }
+    visited.add(id);
+    const cross = (start + bandOf(id) / 2) * bandStep;
+    placed.set(id, vertical ? { x: cross, y: depth * depthStep } : { x: depth * depthStep, y: cross });
+    let cursor = start;
+    for (const kid of kidsOf(id)) {
+      place(kid, depth + 1, cursor);
+      cursor += bandOf(kid);
     }
   };
-  set(root.id, 500, 100);
-  const levels = new Map<string, number>();
-  const visited = new Set<string>([root.id]);
-  const queue = [root.id];
-  levels.set(root.id, 0);
-  while (queue.length) {
-    const pid = queue.shift()!;
-    const kids = childrenOf(pid, edges);
-    kids.forEach((cid) => {
-      if (visited.has(cid)) {
-        // ciclo: nao reenfileira
-        console.warn(`APAMIND: ciclo em autoLayoutOrgChart no no ${sanitizeLog(cid)}`);
-        return;
-      }
-      visited.add(cid);
-      levels.set(cid, levels.get(pid)! + 1);
-      queue.push(cid);
-    });
+  place(root.id, 0, 0);
+
+  // Ancora a raiz na origem, como os layouts anteriores faziam.
+  const rootSpot = placed.get(root.id)!;
+  const shiftX = origin.x - rootSpot.x;
+  const shiftY = origin.y - rootSpot.y;
+  const positioned = new Map<string, { x: number; y: number }>();
+  placed.forEach((p, id) => positioned.set(id, { x: p.x + shiftX, y: p.y + shiftY }));
+
+  // Nós fora da árvore (outra raiz, ciclo, ilha) vão para uma faixa após o fim.
+  const orphans = nodes.filter((n) => !positioned.has(n.id)).sort((a, b) => crossOf(a) - crossOf(b));
+  if (orphans.length) {
+    const spots = [...positioned.values()];
+    const lastDepth = vertical ? Math.max(...spots.map((p) => p.y)) : Math.max(...spots.map((p) => p.x));
+    const rowDepth = lastDepth + depthStep;
+    let cross = 100;
+    for (const orphan of orphans) {
+      positioned.set(orphan.id, vertical ? { x: cross, y: rowDepth } : { x: rowDepth, y: cross });
+      cross += bandStep;
+    }
   }
-  const byLevel = new Map<number, string[]>();
-  levels.forEach((lvl, id) => {
-    const arr = byLevel.get(lvl);
-    if (arr) arr.push(id);
-    else byLevel.set(lvl, [id]);
+
+  return nodes.map((n) => {
+    const spot = positioned.get(n.id);
+    return spot ? { ...n, x: spot.x, y: spot.y } : n;
   });
-  byLevel.forEach((ids, lvl) => {
-    if (lvl === 0) return;
-    const y = 100 + lvl * 180;
-    const spread = Math.max(900, ids.length * 220);
-    const startX = 500 - spread / 2 + 110;
-    ids.forEach((id, i) => set(id, startX + i * 220, y));
-  });
-  return out;
+}
+
+export function autoLayoutOrgChart(nodes: MNode[], edges: MEdge[], rootId?: string) {
+  return autoLayoutHierarchical(nodes, edges, rootId, "vertical");
 }
 
 export function autoLayoutTree(nodes: MNode[], edges: MEdge[], rootId?: string) {
-  const root = rootId ? nodes.find((n) => n.id === rootId) : nodes[0];
-  if (!root) return nodes;
-  const out = [...nodes];
-  const set = (id: string, x: number, y: number) => {
-    const i = out.findIndex((n) => n.id === id);
-    if (i >= 0) {
-      out[i] = { ...out[i], x, y };
-    }
-  };
-  set(root.id, 100, 380);
-  const levels = new Map<string, number>();
-  const visited = new Set<string>([root.id]);
-  const queue = [root.id];
-  levels.set(root.id, 0);
-  while (queue.length) {
-    const pid = queue.shift()!;
-    const kids = childrenOf(pid, edges);
-    kids.forEach((cid) => {
-      if (visited.has(cid)) {
-        console.warn(`APAMIND: ciclo em autoLayoutTree no no ${sanitizeLog(cid)}`);
-        return;
-      }
-      visited.add(cid);
-      levels.set(cid, levels.get(pid)! + 1);
-      queue.push(cid);
-    });
-  }
-  const byLevel = new Map<number, string[]>();
-  levels.forEach((lvl, id) => {
-    const arr = byLevel.get(lvl);
-    if (arr) arr.push(id);
-    else byLevel.set(lvl, [id]);
-  });
-  byLevel.forEach((ids, lvl) => {
-    if (lvl === 0) return;
-    const x = 100 + lvl * 250;
-    const spread = Math.max(600, ids.length * 120);
-    const startY = 380 - spread / 2 + 60;
-    ids.forEach((id, i) => set(id, x, startY + i * 120));
-  });
-  return out;
+  return autoLayoutHierarchical(nodes, edges, rootId, "horizontal");
 }
 
 export function autoLayoutFishbone(nodes: MNode[], edges: MEdge[], rootId?: string) {
